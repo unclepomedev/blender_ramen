@@ -213,9 +213,13 @@ def main():
     output_path = os.path.join(".", OUTPUT_FILE)
     print(f"Writing JSON to {output_path}...", file=sys.stderr)
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(full_dump, f, indent=2)
-    print("Done!", file=sys.stderr)
+    try:
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(full_dump, f, indent=2)
+        print("Done!", file=sys.stderr)
+    except OSError as e:
+        print(f"Error writing output file {output_path}: {e}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
