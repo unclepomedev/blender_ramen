@@ -74,7 +74,7 @@ def safe_convert(val):
 
 
 def get_socket_info(socket):
-    info = {
+    info: dict = {
         "name": str(socket.name),
         "identifier": str(socket.identifier),
         "type": str(socket.bl_idname),
@@ -103,12 +103,22 @@ def get_properties_info(node):
         if prop.type not in SAFE_PROP_TYPES:
             continue
 
-        prop_def = {
+        prop_def: dict = {
             "identifier": str(prop.identifier),
             "name": str(prop.name),
             "type": str(prop.type),
             "description": str(prop.description),
         }
+
+        if prop.type == "ENUM":
+            prop_def["enum_items"] = [
+                {
+                    "identifier": item.identifier,
+                    "name": item.name,
+                    "description": item.description,
+                }
+                for item in prop.enum_items
+            ]
 
         try:
             raw_val = getattr(node, prop.identifier)
@@ -194,12 +204,15 @@ def scan_valid_nodes_for_tree(tree_type, system_label):
                 if node is not None:
                     try:
                         nodes.remove(node)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(
+                            f"  Warning: could not remove node {cls_name}: {e}",
+                            file=sys.stderr,
+                        )
 
         print(
-            f"-> Successfully dumped {success_count} nodes for {system_label} " +
-            f"({failed_count} candidates skipped).",
+            f"-> Successfully dumped {success_count} nodes for {system_label} "
+            + f"({failed_count} candidates skipped).",
             file=sys.stderr,
         )
         return definitions
@@ -219,7 +232,7 @@ def main():
         ),
     }
 
-    output_path = os.path.join(".", OUTPUT_FILE)
+    output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), OUTPUT_FILE)
     print(f"Writing JSON to {output_path}...", file=sys.stderr)
 
     try:
