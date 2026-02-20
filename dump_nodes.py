@@ -81,6 +81,7 @@ def get_properties_info(node):
     if not hasattr(node, "bl_rna"):
         return props
 
+    skip_count = 0
     for prop in node.bl_rna.properties:
         if prop.is_readonly:
             continue
@@ -100,14 +101,41 @@ def get_properties_info(node):
         try:
             raw_val = getattr(node, prop.identifier)
             prop_def["default"] = safe_convert(raw_val)
-        except Exception:
-            continue
+        except Exception as e:
+            print(
+                f"  Warning: could not read property {prop.identifier}: {e}",
+                file=sys.stderr,
+            )
+            skip_count += 1
 
         props.append(prop_def)
+    if skip_count:
+        print(
+            f"  [warn] Skipped {skip_count} properties due to retrieval errors.",
+            file=sys.stderr,
+        )
     return props
 
 
 def scan_valid_nodes_for_tree(tree_type, system_label):
+    """
+    Scans and instances valid node classes for a given node tree type.
+
+    Note on skipped candidates:
+    It is completely normal and expected to see a high number of "skipped" candidates
+    in the output logs. The scanner tests all available node classes in Blender against
+    the target tree type (e.g., GeometryNodeTree) by brute-forcing instantiation.
+
+    Candidates are gracefully skipped for the following reasons:
+    1. Context Mismatch: Nodes belonging to other contexts (e.g., attempting to add
+       a ShaderNodeEmission into a GeometryNodeTree) will be rejected by Blender.
+    2. Abstract/Internal Classes: Abstract base classes (like `Node` or `GeometryNode`)
+       and UI-related components (like `NodeTreeInterfaceSocket`) cannot be instantiated
+       as physical nodes in the graph.
+
+    Therefore, the successfully dumped nodes should represent the majority of
+    standard, built-in functional nodes available in that specific editor.
+    """
     print(f"--- Scanning valid nodes for {system_label} ---", file=sys.stderr)
 
     try:
@@ -134,6 +162,7 @@ def scan_valid_nodes_for_tree(tree_type, system_label):
         )
 
         success_count = 0
+        failed_count = 0
 
         for cls_name in candidates:
             try:
@@ -155,10 +184,12 @@ def scan_valid_nodes_for_tree(tree_type, system_label):
                 success_count += 1
 
             except Exception:
+                failed_count += 1
                 continue
 
         print(
-            f"-> Successfully dumped {success_count} nodes for {system_label}.",
+            f"-> Successfully dumped {success_count} nodes for {system_label}",
+            f"({failed_count} candidates skipped).",
             file=sys.stderr,
         )
         return definitions
