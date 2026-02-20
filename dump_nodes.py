@@ -6,7 +6,13 @@ import sys
 
 OUTPUT_FILE = "blender_nodes_dump.json"
 
-CANDIDATE_PREFIXES = ["GeometryNode", "ShaderNode", "CompositorNode", "Node", "FunctionNode"]
+CANDIDATE_PREFIXES = [
+    "GeometryNode",
+    "ShaderNode",
+    "CompositorNode",
+    "Node",
+    "FunctionNode",
+]
 
 # TODO Only allow property types that can be safely retrieved.
 # Exclude POINTER (data block references) and COLLECTION (lists) as they can cause crashes.
@@ -166,6 +172,7 @@ def scan_valid_nodes_for_tree(tree_type, system_label):
         failed_count = 0
 
         for cls_name in candidates:
+            node = None
             try:
                 cls = getattr(bpy.types, cls_name)
                 node_id = getattr(cls, "bl_idname", cls_name)
@@ -181,12 +188,16 @@ def scan_valid_nodes_for_tree(tree_type, system_label):
                 }
 
                 definitions[node.bl_idname] = node_def
-                nodes.remove(node)
                 success_count += 1
 
             except Exception:
                 failed_count += 1
-                continue
+            finally:
+                if node is not None:
+                    try:
+                        nodes.remove(node)
+                    except Exception:
+                        pass
 
         print(
             f"-> Successfully dumped {success_count} nodes for {system_label}",
