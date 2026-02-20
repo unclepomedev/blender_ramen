@@ -6,7 +6,7 @@ import sys
 
 OUTPUT_FILE = "blender_nodes_dump.json"
 
-CANDIDATE_PREFIXES = ["GeometryNode", "ShaderNode", "Node", "FunctionNode"]
+CANDIDATE_PREFIXES = ["GeometryNode", "ShaderNode", "CompositorNode", "Node", "FunctionNode"]
 
 # TODO Only allow property types that can be safely retrieved.
 # Exclude POINTER (data block references) and COLLECTION (lists) as they can cause crashes.
