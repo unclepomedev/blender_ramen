@@ -1,0 +1,12 @@
+[project]
+name = "blender-ramen"
+version = "0.0.1"
+description = "the ramen"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.2",
+]
