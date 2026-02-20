@@ -106,12 +106,13 @@ def get_properties_info(node):
                 f"  Warning: could not read property {prop.identifier}: {e}",
                 file=sys.stderr,
             )
+            prop_def["default"] = None
             skip_count += 1
 
         props.append(prop_def)
     if skip_count:
         print(
-            f"  [warn] Skipped {skip_count} properties due to retrieval errors.",
+            f"  [warn] Could not retrieve defaults for {skip_count} properties.",
             file=sys.stderr,
         )
     return props
