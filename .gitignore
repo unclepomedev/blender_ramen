@@ -1,2 +1,5 @@
 /target
 .idea/
+blender_nodes_dump.json
+.blender_stubs
+__pycache__
