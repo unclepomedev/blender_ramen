@@ -1,6 +1,7 @@
 import os
 import json
 import subprocess
+import pytest
 
 EXPECTED_JSON_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -8,11 +9,17 @@ EXPECTED_JSON_PATH = os.path.join(
 )
 
 
-def test_blender_dump_execution():
+@pytest.fixture(scope="session")
+def dumped_json_file():
     if os.path.exists(EXPECTED_JSON_PATH):
         os.remove(EXPECTED_JSON_PATH)
 
-    result = subprocess.run(["just", "dump-nodes"], capture_output=True, text=True)
+    result = subprocess.run(
+        ["just", "dump-nodes"],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
 
     assert result.returncode == 0, (
         f"Blender script execution failed!\nSTDERR:\n{result.stderr}"
@@ -21,13 +28,15 @@ def test_blender_dump_execution():
         "JSON file was not created by the script!"
     )
 
+    return EXPECTED_JSON_PATH
 
-def test_dumped_json_schema():
-    assert os.path.exists(EXPECTED_JSON_PATH), (
-        "JSON file is missing. Run dump test first."
-    )
 
-    with open(EXPECTED_JSON_PATH, "r", encoding="utf-8") as f:
+def test_blender_dump_execution(dumped_json_file):
+    assert os.path.exists(dumped_json_file)
+
+
+def test_dumped_json_schema(dumped_json_file):
+    with open(dumped_json_file, "r", encoding="utf-8") as f:
         data = json.load(f)
 
     for category in ["GeometryNodes", "ShaderNodes", "CompositorNodes"]:
