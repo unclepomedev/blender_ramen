@@ -14,7 +14,13 @@ CANDIDATE_PREFIXES = [
     "FunctionNode",
 ]
 
-# TODO Only allow property types that can be safely retrieved.
+_ALL_CANDIDATE_CLASSES = [
+    name
+    for name in dir(bpy.types)
+    if any(name.startswith(p) for p in CANDIDATE_PREFIXES)
+]
+
+# Only allow property types that can be safely retrieved.
 # Exclude POINTER (data block references) and COLLECTION (lists) as they can cause crashes.
 SAFE_PROP_TYPES = {"STRING", "BOOLEAN", "INT", "FLOAT", "ENUM"}
 
@@ -155,23 +161,15 @@ def scan_valid_nodes_for_tree(tree_type, system_label):
         nodes = temp_tree.nodes
         definitions = {}
 
-        all_types = dir(bpy.types)
-        candidates = []
-        for name in all_types:
-            for prefix in CANDIDATE_PREFIXES:
-                if name.startswith(prefix):
-                    candidates.append(name)
-                    break
-
         print(
-            f"Found {len(candidates)} candidate classes. Testing instantiation...",
+            f"Found {len(_ALL_CANDIDATE_CLASSES)} candidate classes. Testing instantiation...",
             file=sys.stderr,
         )
 
         success_count = 0
         failed_count = 0
 
-        for cls_name in candidates:
+        for cls_name in _ALL_CANDIDATE_CLASSES:
             node = None
             try:
                 cls = getattr(bpy.types, cls_name)
@@ -200,7 +198,7 @@ def scan_valid_nodes_for_tree(tree_type, system_label):
                         pass
 
         print(
-            f"-> Successfully dumped {success_count} nodes for {system_label}",
+            f"-> Successfully dumped {success_count} nodes for {system_label} " +
             f"({failed_count} candidates skipped).",
             file=sys.stderr,
         )
