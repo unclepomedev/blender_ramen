@@ -198,7 +198,9 @@ fn generate_outputs(
         let method_getter = format_ident!("{}", getter_name);
         getters.push(quote! {
             pub fn #method_getter(&self) -> crate::core::types::NodeSocket<#rust_type> {
-                crate::core::types::NodeSocket::new_expr(format!("{}.outputs['{}']", self.name, #socket_name))
+                crate::core::types::NodeSocket::new_expr(
+                    format!("{}.outputs[{}]", self.name, crate::core::types::python_string_literal(#socket_name))
+                )
             }
         });
     }
@@ -214,7 +216,7 @@ fn generate_properties(def: &NodeDef, sanitizer: &mut NameSanitizer) -> Vec<Toke
 
         match prop.type_name.as_str() {
             "INT" => quote! { pub fn #method_name(self, val: i32) -> Self { crate::core::context::update_property(&self.name, #prop_id, val.to_string()); self } },
-            "FLOAT" => quote! { pub fn #method_name(self, val: f32) -> Self { crate::core::context::update_property(&self.name, #prop_id, format!("{:.4}", val)); self } },
+            "FLOAT" => quote! { pub fn #method_name(self, val: f32) -> Self { crate::core::context::update_property(&self.name, #prop_id, crate::core::types::fmt_f32(val)); self } },
             "BOOLEAN" => quote! { pub fn #method_name(self, val: bool) -> Self { crate::core::context::update_property(&self.name, #prop_id, if val { "True".to_string() } else { "False".to_string() }); self } },
             // TODO: generate rust enum for type safety
             _ => quote! { pub fn #method_name(self, val: &str) -> Self { crate::core::context::update_property(&self.name, #prop_id, crate::core::types::python_string_literal(val)); self } }
@@ -295,8 +297,18 @@ fn main() {
     let mut structs = Vec::new();
     let mut sorted_keys: Vec<_> = unique_nodes.keys().collect();
     sorted_keys.sort();
+    let mut seen_struct_names = HashSet::new();
 
     for key in sorted_keys {
+        let struct_name_str = key.to_pascal_case();
+
+        if seen_struct_names.contains(&struct_name_str) {
+            panic!(
+                "PascalCase collision: node ID '{}' conflicts with another node resulting in '{}'",
+                key, struct_name_str
+            );
+        }
+        seen_struct_names.insert(struct_name_str);
         structs.push(generate_node_struct(key, &unique_nodes[key]));
     }
 

@@ -15,13 +15,33 @@ pub struct Texture;
 pub struct Any;
 
 pub fn python_string_literal(s: &str) -> String {
-    let escaped = s
-        .replace('\\', r"\\")
-        .replace('"', r#"\""#)
-        .replace('\n', r"\n")
-        .replace('\r', r"\r")
-        .replace('\t', r"\t");
-    format!(r#""{}""#, escaped)
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        match c {
+            '\\' => out.push_str(r"\\"),
+            '"' => out.push_str(r#"\""#),
+            '\n' => out.push_str(r"\n"),
+            '\r' => out.push_str(r"\r"),
+            '\t' => out.push_str(r"\t"),
+            c if (c as u32) < 0x20 => out.push_str(&format!("\\x{:02x}", c as u32)),
+            c => out.push(c),
+        }
+    }
+    out.push('"');
+    out
+}
+
+pub fn fmt_f32(v: f32) -> String {
+    if v.is_nan() {
+        "float('nan')".to_string()
+    } else if v.is_infinite() && v.is_sign_positive() {
+        "float('inf')".to_string()
+    } else if v.is_infinite() {
+        "float('-inf')".to_string()
+    } else {
+        format!("{:.4}", v)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -76,27 +96,26 @@ impl From<String> for NodeSocket<StringType> {
     }
 }
 
-fn fmt_f32(v: f32) -> String {
-    if v.is_nan() {
-        "float('nan')".to_string()
-    } else if v.is_infinite() && v.is_sign_positive() {
-        "float('inf')".to_string()
-    } else if v.is_infinite() {
-        "float('-inf')".to_string()
-    } else {
-        format!("{:.4}", v)
-    }
-}
-
 impl From<(f32, f32, f32)> for NodeSocket<Vector> {
     fn from(v: (f32, f32, f32)) -> Self {
-        Self::new_expr(format!("({}, {}, {})", fmt_f32(v.0), fmt_f32(v.1), fmt_f32(v.2)))
+        Self::new_expr(format!(
+            "({}, {}, {})",
+            fmt_f32(v.0),
+            fmt_f32(v.1),
+            fmt_f32(v.2)
+        ))
     }
 }
 
 impl From<(f32, f32, f32, f32)> for NodeSocket<Color> {
     fn from(c: (f32, f32, f32, f32)) -> Self {
-        Self::new_expr(format!("({}, {}, {}, {})", fmt_f32(c.0), fmt_f32(c.1), fmt_f32(c.2), fmt_f32(c.3)))
+        Self::new_expr(format!(
+            "({}, {}, {}, {})",
+            fmt_f32(c.0),
+            fmt_f32(c.1),
+            fmt_f32(c.2),
+            fmt_f32(c.3)
+        ))
     }
 }
 
