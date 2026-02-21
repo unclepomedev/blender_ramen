@@ -114,6 +114,45 @@ impl_scalar_op!(Sub, sub);
 impl_scalar_op!(Mul, mul);
 impl_scalar_op!(Div, div);
 
+// op(Vector, f32) -----------------------------------------------------------------
+macro_rules! impl_vector_scalar_op {
+    ($Trait:ident, $method:ident) => {
+        // &Vector + f32
+        impl std::ops::$Trait<f32> for &NodeSocket<Vector> {
+            type Output = NodeSocket<Vector>;
+            fn $method(self, rhs: f32) -> Self::Output {
+                self.$method(&NodeSocket::<Vector>::from((rhs, rhs, rhs)))
+            }
+        }
+        // Vector + f32
+        impl std::ops::$Trait<f32> for NodeSocket<Vector> {
+            type Output = NodeSocket<Vector>;
+            fn $method(self, rhs: f32) -> Self::Output {
+                (&self).$method(rhs)
+            }
+        }
+        // f32 + &Vector
+        impl std::ops::$Trait<&NodeSocket<Vector>> for f32 {
+            type Output = NodeSocket<Vector>;
+            fn $method(self, rhs: &NodeSocket<Vector>) -> Self::Output {
+                NodeSocket::<Vector>::from((self, self, self)).$method(rhs)
+            }
+        }
+        // f32 + Vector
+        impl std::ops::$Trait<NodeSocket<Vector>> for f32 {
+            type Output = NodeSocket<Vector>;
+            fn $method(self, rhs: NodeSocket<Vector>) -> Self::Output {
+                self.$method(&rhs)
+            }
+        }
+    };
+}
+
+impl_vector_scalar_op!(Add, add);
+impl_vector_scalar_op!(Sub, sub);
+impl_vector_scalar_op!(Mul, mul);
+impl_vector_scalar_op!(Div, div);
+
 // ----------------------------------------------------------------------------
 // unittest
 // ----------------------------------------------------------------------------
@@ -228,5 +267,31 @@ mod tests {
             "\"MULTIPLY\""
         );
         assert_eq!(nodes[3].properties.get("operation").unwrap(), "\"DIVIDE\"");
+    }
+
+    #[test]
+    fn test_vector_scalar_operations() {
+        let _lock = TEST_LOCK.lock().unwrap();
+
+        context::enter_zone();
+        let v = NodeSocket::<Vector>::from((1.0, 2.0, 3.0));
+
+        let _ = &v * 5.0;
+        let _ = 10.0 / &v;
+
+        let nodes = context::exit_zone();
+        assert_eq!(nodes.len(), 2);
+
+        assert_eq!(
+            nodes[0].properties.get("operation").unwrap(),
+            "\"MULTIPLY\""
+        );
+        assert_eq!(nodes[0].inputs.get(&1).unwrap(), "(5.0000, 5.0000, 5.0000)");
+
+        assert_eq!(nodes[1].properties.get("operation").unwrap(), "\"DIVIDE\"");
+        assert_eq!(
+            nodes[1].inputs.get(&0).unwrap(),
+            "(10.0000, 10.0000, 10.0000)"
+        );
     }
 }
