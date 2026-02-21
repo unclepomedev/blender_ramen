@@ -1,3 +1,14 @@
+//! # Math Operations Module
+//!
+//! This module defines the standard arithmetic operations (`+`, `-`, `*`, `/`) for `NodeSocket`s.
+//!
+//! **[Important Design Consideration]**
+//!
+//! When connecting node input pins, this module intentionally avoids using auto-generated methods like `.value_0()` produced by `build.rs`.
+//! Because Blender nodes (such as the Math node) frequently contain multiple pins with the exact same name (e.g., "Value"), relying on auto-generated, sequentially sanitized names creates a fragile dependency. If Blender updates alter the pin order or add new pins, these generated suffix numbers could shift, leading to fatal bugs in the node graph.
+//!
+//! To eliminate this vulnerability, our core operational logic adopts a robust design that explicitly targets pins by their physical, immutable indices using `.set_input(0, ...)`.
+
 use crate::core::nodes::{ShaderNodeMath, ShaderNodeVectorMath};
 use crate::core::types::{Float, NodeSocket, Vector};
 
