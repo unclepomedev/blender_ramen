@@ -48,15 +48,7 @@ impl<T> NodeSocket<T> {
 
 impl From<f32> for NodeSocket<Float> {
     fn from(v: f32) -> Self {
-        if v.is_nan() {
-            Self::new_expr("float('nan')")
-        } else if v.is_infinite() && v.is_sign_positive() {
-            Self::new_expr("float('inf')")
-        } else if v.is_infinite() && v.is_sign_negative() {
-            Self::new_expr("float('-inf')")
-        } else {
-            Self::new_expr(format!("{:.4}", v))
-        }
+        Self::new_expr(fmt_f32(v))
     }
 }
 

@@ -216,6 +216,7 @@ fn generate_properties(def: &NodeDef, sanitizer: &mut NameSanitizer) -> Vec<Toke
             "INT" => quote! { pub fn #method_name(self, val: i32) -> Self { crate::core::context::update_property(&self.name, #prop_id, val.to_string()); self } },
             "FLOAT" => quote! { pub fn #method_name(self, val: f32) -> Self { crate::core::context::update_property(&self.name, #prop_id, format!("{:.4}", val)); self } },
             "BOOLEAN" => quote! { pub fn #method_name(self, val: bool) -> Self { crate::core::context::update_property(&self.name, #prop_id, if val { "True".to_string() } else { "False".to_string() }); self } },
+            // TODO: generate rust enum for type safety
             _ => quote! { pub fn #method_name(self, val: &str) -> Self { crate::core::context::update_property(&self.name, #prop_id, crate::core::types::python_string_literal(val)); self } }
         }
     }).collect()
@@ -239,7 +240,7 @@ fn generate_node_struct(node_id: &str, def: &NodeDef) -> TokenStream {
         impl #struct_name {
             pub fn new() -> Self {
                 let uuid_str = uuid::Uuid::new_v4().simple().to_string();
-                let name = format!("{}_{}", #struct_name_str, uuid_str.chars().take(8).collect::<String>());
+                let name = format!("{}_{}", #struct_name_str, uuid_str.chars().take(12).collect::<String>());
                 crate::core::context::add_node(crate::core::context::NodeData::new(name.clone(), #blender_idname.to_string()));
                 Self { name }
             }
@@ -303,6 +304,5 @@ fn main() {
     let dest_path = Path::new(&out_dir).join("nodes.rs");
 
     let raw_code = quote! { #(#structs)* }.to_string();
-    let formatted_code = raw_code.replace("} ", "}\n");
-    fs::write(&dest_path, formatted_code).unwrap();
+    fs::write(&dest_path, raw_code).unwrap();
 }
