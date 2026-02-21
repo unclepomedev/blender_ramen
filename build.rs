@@ -271,9 +271,21 @@ fn main() {
     let dump: DumpRoot = serde_json::from_str(&json_content).expect("Failed to parse JSON");
 
     let mut unique_nodes = HashMap::new();
-    unique_nodes.extend(dump.GeometryNodes);
-    unique_nodes.extend(dump.ShaderNodes);
-    unique_nodes.extend(dump.CompositorNodes);
+    for (category, nodes) in [
+        ("GeometryNodes", dump.GeometryNodes),
+        ("ShaderNodes", dump.ShaderNodes),
+        ("CompositorNodes", dump.CompositorNodes),
+    ] {
+        for (key, def) in nodes {
+            if let Some(_existing) = unique_nodes.get(&key) {
+                eprintln!(
+                    "cargo:warning=Duplicate node key '{}' in {} (already present), overwriting",
+                    key, category
+                );
+            }
+            unique_nodes.insert(key, def);
+        }
+    }
 
     let mut structs = Vec::new();
     let mut sorted_keys: Vec<_> = unique_nodes.keys().collect();
