@@ -133,6 +133,12 @@ impl BuildContext {
         }
     }
 
+    pub fn append_custom_link(&mut self, name: &str, script: String) {
+        if let Some(node) = self.nodes.get_mut(name) {
+            node.custom_links_script.push_str(&script);
+        }
+    }
+
     pub fn enter_scope(&mut self) {
         self.stack.push(Vec::new());
     }
@@ -158,6 +164,24 @@ impl BuildContext {
     }
 }
 
+/// **[WARNING: Logical Thread Safety]**
+///
+/// `GLOBAL_CONTEXT` utilizes a `Mutex` to prevent memory corruption (data races),
+/// making it strictly memory-safe. However, it is **logically thread-unsafe**.
+///
+/// Because node generation relies on a single shared state (like a global whiteboard),
+/// if multiple threads attempt to generate node trees or enter/exit zones concurrently,
+/// their operations will interleave. For example, Thread B might inject a node into
+/// Thread A's active scope, or Thread A might steal Thread B's nodes upon `exit_zone()`.
+///
+/// **Constraints:**
+/// - Node generation must be strictly **single-threaded** and sequential.
+/// - Do not use `rayon` or concurrent `tokio` tasks to build multiple node trees at once.
+///
+/// **Future Architecture Note:**
+/// To make this library fully thread-safe for highly concurrent environments (e.g., a Web API),
+/// we should either migrate this to `thread_local!` or refactor the API to explicitly pass
+/// a `&mut BuildContext` around instead of relying on hidden global state.
 pub static GLOBAL_CONTEXT: LazyLock<Mutex<BuildContext>> =
     LazyLock::new(|| Mutex::new(BuildContext::new()));
 
@@ -188,6 +212,14 @@ pub fn update_post_creation(name: &str, script: String) {
         .unwrap()
         .update_post_creation(name, script);
 }
+
+pub fn append_custom_link(name: &str, script: String) {
+    GLOBAL_CONTEXT
+        .lock()
+        .unwrap()
+        .append_custom_link(name, script);
+}
+
 pub fn enter_zone() {
     GLOBAL_CONTEXT.lock().unwrap().enter_scope();
 }
@@ -201,6 +233,12 @@ pub fn take_root_nodes() -> Scope {
 // ---------------------------------------------------------
 // unittest
 // ---------------------------------------------------------
+#[cfg(test)]
+pub mod test_utils {
+    use std::sync::{LazyLock, Mutex};
+    pub static GLOBAL_TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

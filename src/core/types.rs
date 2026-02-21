@@ -146,6 +146,37 @@ impl<T> From<&NodeSocket<T>> for NodeSocket<T> {
     }
 }
 
+pub trait SocketDef {
+    fn socket_type() -> &'static str;
+    fn default_name() -> &'static str;
+}
+
+macro_rules! impl_socket_def {
+    ($type:ident, $sock_type:expr, $def_name:expr) => {
+        impl SocketDef for $type {
+            fn socket_type() -> &'static str {
+                $sock_type
+            }
+            fn default_name() -> &'static str {
+                $def_name
+            }
+        }
+    };
+}
+
+impl_socket_def!(Geo, "GEOMETRY", "Geometry");
+impl_socket_def!(Float, "FLOAT", "Value");
+impl_socket_def!(Int, "INT", "Value");
+impl_socket_def!(Vector, "VECTOR", "Vector");
+impl_socket_def!(Color, "RGBA", "Color");
+impl_socket_def!(Bool, "BOOLEAN", "Boolean");
+impl_socket_def!(StringType, "STRING", "String");
+impl_socket_def!(Material, "MATERIAL", "Material");
+impl_socket_def!(Object, "OBJECT", "Object");
+impl_socket_def!(Collection, "COLLECTION", "Collection");
+impl_socket_def!(Image, "IMAGE", "Image");
+impl_socket_def!(Texture, "TEXTURE", "Texture");
+
 macro_rules! impl_into_any {
     ($($t:ty),*) => {
         $(
