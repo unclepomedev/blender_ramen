@@ -216,7 +216,7 @@ fn generate_properties(def: &NodeDef, sanitizer: &mut NameSanitizer) -> Vec<Toke
             "INT" => quote! { pub fn #method_name(self, val: i32) -> Self { crate::core::context::update_property(&self.name, #prop_id, val.to_string()); self } },
             "FLOAT" => quote! { pub fn #method_name(self, val: f32) -> Self { crate::core::context::update_property(&self.name, #prop_id, format!("{:.4}", val)); self } },
             "BOOLEAN" => quote! { pub fn #method_name(self, val: bool) -> Self { crate::core::context::update_property(&self.name, #prop_id, if val { "True".to_string() } else { "False".to_string() }); self } },
-            _ => quote! { pub fn #method_name(self, val: &str) -> Self { crate::core::context::update_property(&self.name, #prop_id, format!("'{}'", val)); self } }
+            _ => quote! { pub fn #method_name(self, val: &str) -> Self { crate::core::context::update_property(&self.name, #prop_id, format!("{:?}", val)); self } }
         }
     }).collect()
 }
@@ -263,13 +263,15 @@ fn main() {
     let json_path = "blender_nodes_dump.json";
     println!("cargo:rerun-if-changed={}", json_path);
 
-    let json_content = fs::read_to_string(json_path).unwrap_or_default();
-    if json_content.is_empty() {
-        return;
+    let json_content = fs::read_to_string(json_path)
+        .unwrap_or_else(|e| panic!("Failed to read {}: {}", json_path, e));
+    if json_content.trim().is_empty() {
+        panic!("{} is empty — cannot generate node bindings", json_path);
     }
 
     let dump: DumpRoot = serde_json::from_str(&json_content).expect("Failed to parse JSON");
 
+    let debug_mode = env::var("RAMEN_DEBUG_NODES").is_ok();
     let mut unique_nodes = HashMap::new();
     for (category, nodes) in [
         ("GeometryNodes", dump.GeometryNodes),
@@ -277,8 +279,10 @@ fn main() {
         ("CompositorNodes", dump.CompositorNodes),
     ] {
         for (key, def) in nodes {
-            if let Some(_existing) = unique_nodes.get(&key) {
-                eprintln!(
+            if let Some(_existing) = unique_nodes.get(&key)
+                && debug_mode
+            {
+                println!(
                     "cargo:warning=Duplicate node key '{}' in {} (already present), overwriting",
                     key, category
                 );

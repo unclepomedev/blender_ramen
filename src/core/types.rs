@@ -64,13 +64,13 @@ impl From<bool> for NodeSocket<Bool> {
 
 impl From<&str> for NodeSocket<StringType> {
     fn from(s: &str) -> Self {
-        Self::new_expr(format!("{:?}", s))
+        Self::new_expr(python_string_literal(s))
     }
 }
 
 impl From<String> for NodeSocket<StringType> {
     fn from(s: String) -> Self {
-        Self::new_expr(format!("{:?}", s))
+        Self::new_expr(python_string_literal(&s))
     }
 }
 
@@ -113,6 +113,16 @@ macro_rules! impl_into_any {
 impl_into_any!(
     Geo, Float, Int, Vector, Color, StringType, Bool, Material, Object, Collection, Image, Texture
 );
+
+fn python_string_literal(s: &str) -> String {
+    let escaped = s
+        .replace('\\', r"\\")
+        .replace('"', r#"\""#)
+        .replace('\n', r"\n")
+        .replace('\r', r"\r")
+        .replace('\t', r"\t");
+    format!(r#""{}""#, escaped)
+}
 
 // ---------------------------------------------------------
 // unittest

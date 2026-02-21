@@ -14,3 +14,5 @@ fmt-rs:
     just fix-rs
     cargo fmt --all
 
+build:
+    RAMEN_DEBUG_NODES=1 cargo build
