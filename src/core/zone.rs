@@ -13,11 +13,17 @@ fn add_custom_link(src_expr: &str, dst_node: &str, index: usize) {
 }
 
 pub trait RepeatItems {
-    fn setup_items(out_name: &str, post_code: &mut String);
+    fn setup_items(out_name: &str, post_code: &mut String)
+    where
+        Self: Sized;
     fn link_initial(&self, in_name: &str);
-    fn create_inner(in_name: &str) -> Self;
+    fn create_inner(in_name: &str) -> Self
+    where
+        Self: Sized;
     fn link_result(&self, out_name: &str);
-    fn create_output(out_name: &str) -> Self;
+    fn create_output(out_name: &str) -> Self
+    where
+        Self: Sized;
 }
 
 // for empty tuple ==================================================
@@ -194,8 +200,6 @@ mod tests {
         assert!(out_f.python_expr.contains(".outputs[1]"));
         assert!(out_v.python_expr.contains(".outputs[2]"));
 
-        let mut found_setup = false;
-        let mut link_count = 0;
         let mut in_node_name = String::new();
         let mut out_node_name = String::new();
 
@@ -208,19 +212,24 @@ mod tests {
 
             let post_code = &node.post_creation_script;
             if post_code.contains("pair_with_output") {
-                found_setup = true;
                 assert!(post_code.contains("repeat_items.new('GEOMETRY', 'Geometry')"));
                 assert!(post_code.contains("repeat_items.new('FLOAT', 'Value')"));
                 assert!(post_code.contains("repeat_items.new('VECTOR', 'Vector')"));
             }
-
-            link_count += node.custom_links_script.matches("tree.links.new").count();
         }
 
-        assert!(found_setup);
-        assert_eq!(link_count, 6);
-
         let in_node = nodes.iter().find(|n| n.name == in_node_name).unwrap();
+        let in_link_count = in_node
+            .custom_links_script
+            .matches("tree.links.new")
+            .count();
+        let out_node = nodes.iter().find(|n| n.name == out_node_name).unwrap();
+        let out_link_count = out_node
+            .custom_links_script
+            .matches("tree.links.new")
+            .count();
+        assert_eq!(out_link_count, 3, "expected 3 result links on RepeatOutput");
+        assert_eq!(in_link_count, 3, "expected 3 initial links on RepeatInput");
         assert!(
             in_node
                 .custom_links_script
