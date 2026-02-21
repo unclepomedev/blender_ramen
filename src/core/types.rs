@@ -14,6 +14,16 @@ pub struct Image;
 pub struct Texture;
 pub struct Any;
 
+pub fn python_string_literal(s: &str) -> String {
+    let escaped = s
+        .replace('\\', r"\\")
+        .replace('"', r#"\""#)
+        .replace('\n', r"\n")
+        .replace('\r', r"\r")
+        .replace('\t', r"\t");
+    format!(r#""{}""#, escaped)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NodeSocket<T> {
     pub python_expr: String,
@@ -74,15 +84,27 @@ impl From<String> for NodeSocket<StringType> {
     }
 }
 
+fn fmt_f32(v: f32) -> String {
+    if v.is_nan() {
+        "float('nan')".to_string()
+    } else if v.is_infinite() && v.is_sign_positive() {
+        "float('inf')".to_string()
+    } else if v.is_infinite() {
+        "float('-inf')".to_string()
+    } else {
+        format!("{:.4}", v)
+    }
+}
+
 impl From<(f32, f32, f32)> for NodeSocket<Vector> {
     fn from(v: (f32, f32, f32)) -> Self {
-        Self::new_expr(format!("({:.4}, {:.4}, {:.4})", v.0, v.1, v.2))
+        Self::new_expr(format!("({}, {}, {})", fmt_f32(v.0), fmt_f32(v.1), fmt_f32(v.2)))
     }
 }
 
 impl From<(f32, f32, f32, f32)> for NodeSocket<Color> {
     fn from(c: (f32, f32, f32, f32)) -> Self {
-        Self::new_expr(format!("({:.4}, {:.4}, {:.4}, {:.4})", c.0, c.1, c.2, c.3))
+        Self::new_expr(format!("({}, {}, {}, {})", fmt_f32(c.0), fmt_f32(c.1), fmt_f32(c.2), fmt_f32(c.3)))
     }
 }
 
@@ -113,16 +135,6 @@ macro_rules! impl_into_any {
 impl_into_any!(
     Geo, Float, Int, Vector, Color, StringType, Bool, Material, Object, Collection, Image, Texture
 );
-
-fn python_string_literal(s: &str) -> String {
-    let escaped = s
-        .replace('\\', r"\\")
-        .replace('"', r#"\""#)
-        .replace('\n', r"\n")
-        .replace('\r', r"\r")
-        .replace('\t', r"\t");
-    format!(r#""{}""#, escaped)
-}
 
 // ---------------------------------------------------------
 // unittest

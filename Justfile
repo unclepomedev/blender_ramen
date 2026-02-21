@@ -16,3 +16,6 @@ fmt-rs:
 
 build:
     RAMEN_DEBUG_NODES=1 cargo build
+
+test-rs:
+    cargo test
