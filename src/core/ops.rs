@@ -160,12 +160,11 @@ impl_vector_scalar_op!(Div, div);
 mod tests {
     use super::*;
     use crate::core::context;
-    use std::sync::{LazyLock, Mutex};
-    static TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+    use crate::core::context::test_utils::GLOBAL_TEST_LOCK;
 
     #[test]
     fn test_float_math_ownership_variants() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
 
         context::enter_zone();
         let a = NodeSocket::<Float>::from(10.0);
@@ -186,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_float_math_operations() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
 
         context::enter_zone();
         let a = NodeSocket::<Float>::from(10.0);
@@ -214,7 +213,7 @@ mod tests {
 
     #[test]
     fn test_scalar_operations_and_order() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
 
         context::enter_zone();
         let a = NodeSocket::<Float>::from(5.0);
@@ -239,7 +238,7 @@ mod tests {
 
     #[test]
     fn test_vector_math_operations() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
 
         context::enter_zone();
         let v1 = NodeSocket::<Vector>::from((1.0, 2.0, 3.0));
@@ -271,7 +270,7 @@ mod tests {
 
     #[test]
     fn test_vector_scalar_operations() {
-        let _lock = TEST_LOCK.lock().unwrap();
+        let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
 
         context::enter_zone();
         let v = NodeSocket::<Vector>::from((1.0, 2.0, 3.0));

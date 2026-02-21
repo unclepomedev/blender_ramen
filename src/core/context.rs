@@ -133,6 +133,12 @@ impl BuildContext {
         }
     }
 
+    pub fn append_custom_link(&mut self, name: &str, script: String) {
+        if let Some(node) = self.nodes.get_mut(name) {
+            node.custom_links_script.push_str(&script);
+        }
+    }
+
     pub fn enter_scope(&mut self) {
         self.stack.push(Vec::new());
     }
@@ -188,6 +194,14 @@ pub fn update_post_creation(name: &str, script: String) {
         .unwrap()
         .update_post_creation(name, script);
 }
+
+pub fn append_custom_link(name: &str, script: String) {
+    GLOBAL_CONTEXT
+        .lock()
+        .unwrap()
+        .append_custom_link(name, script);
+}
+
 pub fn enter_zone() {
     GLOBAL_CONTEXT.lock().unwrap().enter_scope();
 }
@@ -201,6 +215,12 @@ pub fn take_root_nodes() -> Scope {
 // ---------------------------------------------------------
 // unittest
 // ---------------------------------------------------------
+#[cfg(test)]
+pub mod test_utils {
+    use std::sync::{LazyLock, Mutex};
+    pub static GLOBAL_TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
