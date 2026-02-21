@@ -46,7 +46,7 @@ macro_rules! impl_repeat_items {
                 $( add_custom_link(&self.$idx.python_expr, in_name, $idx + 1); )+
             }
             fn create_inner(in_name: &str) -> Self {
-                ( $( NodeSocket::<$T>::new_expr(format!("{}.outputs[{}]", in_name, $idx)), )+ )
+                ( $( NodeSocket::<$T>::new_expr(format!("{}.outputs[{}]", in_name, $idx + 1)), )+ )
             }
             fn link_result(&self, out_name: &str) {
                 $( add_custom_link(&self.$idx.python_expr, out_name, $idx); )+
@@ -58,6 +58,8 @@ macro_rules! impl_repeat_items {
     };
 }
 
+// RepeatItems is implemented for tuples of NodeSocket up to arity 6.
+// To support higher arities, add further impl_repeat_items! invocations.
 impl_repeat_items!(0 => T0);
 impl_repeat_items!(0 => T0, 1 => T1);
 impl_repeat_items!(0 => T0, 1 => T1, 2 => T2);
@@ -128,7 +130,15 @@ mod tests {
         context::enter_zone();
 
         let initial_geo = NodeSocket::<Geo>::new_expr("source_geo_expr");
-        let (out_geo,) = repeat_zone(5, (initial_geo,), |(geo,)| (geo,));
+
+        let (out_geo,) = repeat_zone(5, (initial_geo,), |(geo,)| {
+            assert!(
+                geo.python_expr.contains(".outputs[1]"),
+                "Inner socket must reference outputs[1] to skip 'Iteration' output"
+            );
+            (geo,)
+        });
+
         let nodes = context::exit_zone();
 
         assert!(out_geo.python_expr.contains(".outputs[0]"));
@@ -169,6 +179,10 @@ mod tests {
             10,
             (initial_geo, initial_float, initial_vec),
             |(g, f, v)| {
+                assert!(g.python_expr.contains(".outputs[1]"));
+                assert!(f.python_expr.contains(".outputs[2]"));
+                assert!(v.python_expr.contains(".outputs[3]"));
+
                 let new_f = &f + 1.0;
                 (g, new_f, v)
             },
