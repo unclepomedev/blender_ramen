@@ -6,3 +6,16 @@ fmt-py:
 
 test-py:
     uv run pytest
+
+fix-rs:
+    cargo clippy --fix --allow-dirty --allow-staged --all-targets -- -D warnings
+
+fmt-rs:
+    just fix-rs
+    cargo fmt --all
+
+build:
+    RAMEN_DEBUG_NODES=1 cargo build
+
+test-rs:
+    cargo test
