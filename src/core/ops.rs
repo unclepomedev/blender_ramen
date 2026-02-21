@@ -121,9 +121,8 @@ impl_scalar_op!(Div, div);
 mod tests {
     use super::*;
     use crate::core::context;
-    use once_cell::sync::Lazy;
-    use std::sync::Mutex;
-    static TEST_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
+    use std::sync::{LazyLock, Mutex};
+    static TEST_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
     #[test]
     fn test_float_math_ownership_variants() {
