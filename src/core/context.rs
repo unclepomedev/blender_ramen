@@ -1,7 +1,6 @@
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::fmt::Write;
-use std::sync::Mutex;
+use std::sync::{LazyLock, Mutex};
 
 #[derive(Clone, Debug)]
 pub struct NodeData {
@@ -159,8 +158,8 @@ impl BuildContext {
     }
 }
 
-pub static GLOBAL_CONTEXT: Lazy<Mutex<BuildContext>> =
-    Lazy::new(|| Mutex::new(BuildContext::new()));
+pub static GLOBAL_CONTEXT: LazyLock<Mutex<BuildContext>> =
+    LazyLock::new(|| Mutex::new(BuildContext::new()));
 
 pub fn add_node(data: NodeData) {
     GLOBAL_CONTEXT.lock().unwrap().add_node(data);

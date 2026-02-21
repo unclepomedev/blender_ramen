@@ -44,10 +44,19 @@ pub fn fmt_f32(v: f32) -> String {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct NodeSocket<T> {
     pub python_expr: String,
     pub _marker: std::marker::PhantomData<T>,
+}
+
+impl<T> Clone for NodeSocket<T> {
+    fn clone(&self) -> Self {
+        Self {
+            python_expr: self.python_expr.clone(),
+            _marker: std::marker::PhantomData,
+        }
+    }
 }
 
 impl<T> NodeSocket<T> {
@@ -128,6 +137,12 @@ impl From<NodeSocket<Vector>> for NodeSocket<Color> {
 impl From<NodeSocket<Color>> for NodeSocket<Vector> {
     fn from(socket: NodeSocket<Color>) -> Self {
         socket.cast::<Vector>()
+    }
+}
+
+impl<T> From<&NodeSocket<T>> for NodeSocket<T> {
+    fn from(socket: &NodeSocket<T>) -> Self {
+        socket.clone()
     }
 }
 

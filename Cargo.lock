@@ -19,7 +19,6 @@ name = "blender_ramen"
 version = "0.0.1"
 dependencies = [
  "heck",
- "once_cell",
  "proc-macro2",
  "quote",
  "serde",
