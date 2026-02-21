@@ -2,4 +2,5 @@
 
 mod context;
 mod nodes;
+mod ops;
 mod types;
