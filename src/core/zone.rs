@@ -20,7 +20,16 @@ pub trait RepeatItems {
     fn create_output(out_name: &str) -> Self;
 }
 
-// auto-generate RepeatItems
+// for empty tuple ==================================================
+impl RepeatItems for () {
+    fn setup_items(_out_name: &str, _post_code: &mut String) {}
+    fn link_initial(&self, _in_name: &str) {}
+    fn create_inner(_in_name: &str) -> Self {}
+    fn link_result(&self, _out_name: &str) {}
+    fn create_output(_out_name: &str) -> Self {}
+}
+
+// for at least one element tuple ===================================
 macro_rules! impl_repeat_items {
     ( $($idx:tt => $T:ident),+ ) => {
         impl<$($T: SocketDef),+> RepeatItems for ($(NodeSocket<$T>,)+) {
@@ -34,7 +43,7 @@ macro_rules! impl_repeat_items {
                 )+
             }
             fn link_initial(&self, in_name: &str) {
-                $( add_custom_link(&self.$idx.python_expr, in_name, $idx); )+
+                $( add_custom_link(&self.$idx.python_expr, in_name, $idx + 1); )+
             }
             fn create_inner(in_name: &str) -> Self {
                 ( $( NodeSocket::<$T>::new_expr(format!("{}.outputs[{}]", in_name, $idx)), )+ )
@@ -96,6 +105,24 @@ mod tests {
     use crate::core::types::{Float, Geo, Vector};
 
     #[test]
+    fn test_repeat_zone_empty_tuple() {
+        let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
+        context::enter_zone();
+
+        let () = repeat_zone(5, (), |()| ());
+
+        let nodes = context::exit_zone();
+        let in_node = nodes
+            .iter()
+            .find(|n| n.bl_idname == "GeometryNodeRepeatInput")
+            .unwrap();
+
+        assert!(in_node.post_creation_script.contains("pair_with_output"));
+        assert!(!in_node.post_creation_script.contains("repeat_items.new"));
+        assert!(in_node.custom_links_script.is_empty());
+    }
+
+    #[test]
     fn test_repeat_zone_single_element() {
         let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
         context::enter_zone();
@@ -107,18 +134,25 @@ mod tests {
         assert!(out_geo.python_expr.contains(".outputs[0]"));
 
         let mut found_setup = false;
+        let mut in_node_name = String::new();
+
         for node in &nodes {
             let post_code = &node.post_creation_script;
             if post_code.contains("pair_with_output") {
                 found_setup = true;
+                in_node_name = node.name.clone();
                 assert!(post_code.contains("repeat_items.clear()"));
                 assert!(post_code.contains("repeat_items.new('GEOMETRY', 'Geometry')"));
                 assert!(!post_code.contains("FLOAT"));
             }
         }
+        assert!(found_setup);
+
+        let in_node = nodes.iter().find(|n| n.name == in_node_name).unwrap();
+        let expected_link = format!("{}.inputs[1]", in_node_name);
         assert!(
-            found_setup,
-            "Repeat Input node should have the setup post_creation_script"
+            in_node.custom_links_script.contains(&expected_link),
+            "Initial item should be linked to inputs[1], not inputs[0]"
         );
     }
 
@@ -148,8 +182,16 @@ mod tests {
 
         let mut found_setup = false;
         let mut link_count = 0;
+        let mut in_node_name = String::new();
+        let mut out_node_name = String::new();
 
         for node in &nodes {
+            if node.bl_idname == "GeometryNodeRepeatInput" {
+                in_node_name = node.name.clone();
+            } else if node.bl_idname == "GeometryNodeRepeatOutput" {
+                out_node_name = node.name.clone();
+            }
+
             let post_code = &node.post_creation_script;
             if post_code.contains("pair_with_output") {
                 found_setup = true;
@@ -162,10 +204,40 @@ mod tests {
         }
 
         assert!(found_setup);
+        assert_eq!(link_count, 6);
 
-        assert_eq!(
-            link_count, 6,
-            "Should generate exactly 6 custom links for 3 items (in and out)"
+        let in_node = nodes.iter().find(|n| n.name == in_node_name).unwrap();
+        assert!(
+            in_node
+                .custom_links_script
+                .contains(&format!("{}.inputs[1]", in_node_name))
+        );
+        assert!(
+            in_node
+                .custom_links_script
+                .contains(&format!("{}.inputs[2]", in_node_name))
+        );
+        assert!(
+            in_node
+                .custom_links_script
+                .contains(&format!("{}.inputs[3]", in_node_name))
+        );
+
+        let out_node = nodes.iter().find(|n| n.name == out_node_name).unwrap();
+        assert!(
+            out_node
+                .custom_links_script
+                .contains(&format!("{}.inputs[0]", out_node_name))
+        );
+        assert!(
+            out_node
+                .custom_links_script
+                .contains(&format!("{}.inputs[1]", out_node_name))
+        );
+        assert!(
+            out_node
+                .custom_links_script
+                .contains(&format!("{}.inputs[2]", out_node_name))
         );
     }
 }
