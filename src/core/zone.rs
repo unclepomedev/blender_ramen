@@ -246,7 +246,6 @@ mod tests {
                 .contains(&format!("{}.inputs[3]", in_node_name))
         );
 
-        let out_node = nodes.iter().find(|n| n.name == out_node_name).unwrap();
         assert!(
             out_node
                 .custom_links_script
