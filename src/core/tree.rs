@@ -1,4 +1,4 @@
-use crate::core::context::{enter_zone, exit_zone, take_root_nodes};
+use crate::core::context::{enter_zone, exit_zone};
 use std::fmt::Write;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,8 +39,7 @@ mat = bpy.data.materials.get('{name}')
 if not mat:
     mat = bpy.data.materials.new(name='{name}')
 tree = mat.node_tree
-for node in tree.nodes:
-    tree.nodes.remove(node)
+tree.nodes.clear()
 "#,
                     name = self.name
                 );
