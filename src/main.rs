@@ -6,7 +6,8 @@ use crate::core::nodes::{
     NodeGroupOutput, ShaderNodeAttribute, ShaderNodeEmission, ShaderNodeOutputMaterial,
 };
 use crate::core::tree::{NodeTree, generate_script_header};
-use crate::core::types::{Material, NodeSocket, Vector};
+use crate::core::types::{Float, Material, NodeSocket, Vector};
+use ramen_macros::ramen_math;
 
 const SHARED_UV_ATTR: &str = "Procedural_UV";
 const MAT_NAME: &str = "MyRustMat";
@@ -29,8 +30,12 @@ fn main() {
     // 2. Geometry Node Tree
     // ==========================================
     let geo_script = NodeTree::new_geometry("LinkTest").build(|| {
+        let a = NodeSocket::<Float>::from(10.0);
+        let b = NodeSocket::<Float>::from(5.0);
+        let c = NodeSocket::<Float>::from(2.0);
+        let result = ramen_math!( (a + b) * c / 2.0 );
         let grid = GeometryNodeMeshGrid::new()
-            .with_size_x(5.0)
+            .with_size_x(result)
             .with_vertices_x(10);
 
         let store_attr = GeometryNodeStoreNamedAttribute::new()
