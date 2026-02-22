@@ -6,7 +6,6 @@ use syn::{Expr, parse_macro_input};
 /// Maps a Rust identifier to a Blender `ShaderNodeMath` operation name and the expected number of arguments.
 fn get_blender_math_op(name: &str) -> Option<(&'static str, usize)> {
     match name {
-        // 1 arg
         "sin" => Some(("SINE", 1)),
         "cos" => Some(("COSINE", 1)),
         "tan" => Some(("TANGENT", 1)),
@@ -18,7 +17,6 @@ fn get_blender_math_op(name: &str) -> Option<(&'static str, usize)> {
         "tanh" => Some(("TANH", 1)),
         "sqrt" => Some(("SQRT", 1)),
         "exp" => Some(("EXPONENT", 1)),
-        "log" => Some(("LOGARITHM", 1)),
         "round" => Some(("ROUND", 1)),
         "floor" => Some(("FLOOR", 1)),
         "ceil" => Some(("CEIL", 1)),
@@ -29,16 +27,15 @@ fn get_blender_math_op(name: &str) -> Option<(&'static str, usize)> {
         "radians" => Some(("RADIANS", 1)),
         "degrees" => Some(("DEGREES", 1)),
 
-        // 2 args
+        "log" => Some(("LOGARITHM", 2)),
         "atan2" => Some(("ARCTAN2", 2)),
         "pow" => Some(("POWER", 2)),
-        "mod" => Some(("MODULO", 2)),
+        "modulo" => Some(("MODULO", 2)),
         "min" => Some(("MINIMUM", 2)),
         "max" => Some(("MAXIMUM", 2)),
         "snap" => Some(("SNAP", 2)),
         "pingpong" => Some(("PINGPONG", 2)),
 
-        // 3 args
         "wrap" => Some(("WRAP", 3)),
         "smooth_min" => Some(("SMOOTH_MIN", 3)),
         "smooth_max" => Some(("SMOOTH_MAX", 3)),
@@ -130,8 +127,8 @@ impl Fold for MathFolder {
 /// ### Supported Functions
 /// Supports the following functions available in `ShaderNodeMath` for Blender 5.x and later:
 ///
-/// - **1 argument**: `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `sqrt`, `exp`, `log`, `round`, `floor`, `ceil`, `trunc`, `fract`, `abs`, `sign`, `radians`, `degrees`
-/// - **2 arguments**: `atan2`, `pow`, `mod`, `min`, `max`, `snap`, `pingpong`
+/// - **1 argument**: `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `sqrt`, `exp`, `round`, `floor`, `ceil`, `trunc`, `fract`, `abs`, `sign`, `radians`, `degrees`
+/// - **2 arguments**: `log`, `atan2`, `pow`, `modulo`, `min`, `max`, `snap`, `pingpong`
 /// - **3 arguments**: `wrap`, `smooth_min`, `smooth_max`, `compare`, `multiply_add`
 ///
 /// ### Example
