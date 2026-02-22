@@ -11,7 +11,6 @@ use crate::core::types::{Material, NodeSocket, Vector};
 const SHARED_UV_ATTR: &str = "Procedural_UV";
 const MAT_NAME: &str = "MyRustMat";
 
-/// TODO: replace with live link client
 fn main() {
     let mut final_script = generate_script_header();
 

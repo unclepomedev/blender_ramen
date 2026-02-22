@@ -15,8 +15,8 @@ pub fn send_to_blender(script: &str) {
                 println!("✅ Live-Link successful! Transferred the node tree to Blender!");
             }
         }
-        Err(_) => {
-            eprintln!("❌ Could not connect to Blender.");
+        Err(e) => {
+            eprintln!("❌ Could not connect to Blender: {}", e);
             eprintln!("💡 Hint: Is the Live-Link server (Python script) running in Blender?");
         }
     }
