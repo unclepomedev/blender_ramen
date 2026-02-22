@@ -1,5 +1,6 @@
 mod core;
 
+use crate::core::live_link::send_to_blender;
 use crate::core::nodes::{
     GeometryNodeMeshGrid, GeometryNodeSetMaterial, GeometryNodeStoreNamedAttribute,
     NodeGroupOutput, ShaderNodeAttribute, ShaderNodeEmission, ShaderNodeOutputMaterial,
@@ -51,4 +52,5 @@ fn main() {
     final_script.push_str(&geo_script);
 
     println!("{}", final_script);
+    send_to_blender(&final_script);
 }
