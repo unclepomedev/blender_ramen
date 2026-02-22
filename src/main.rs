@@ -50,10 +50,17 @@ fn main() {
             .with_geometry(store_attr.out_geometry())
             .with_material(mat_socket);
 
-        NodeGroupOutput::new().set_input(
-            GeometryNodeStoreNamedAttribute::PIN_GEOMETRY,
-            set_mat.out_geometry(),
-        );
+        // Note on magic numbers for Group Input/Output nodes:
+        // Unlike standard built-in nodes, `NodeGroupOutput` and `NodeGroupInput` have dynamic sockets
+        // that depend entirely on the custom interface defined for the specific Node Tree.
+        // In our `tree.rs` setup script, we explicitly created a single 'Geometry' output socket first:
+        // `tree.interface.new_socket('Geometry', in_out='OUTPUT', ...)`
+        // Therefore, this socket physically resides at index `0`.
+        //
+        // Rule of thumb: Always use raw physical indices (0, 1, 2...) for Group Input/Output nodes,
+        // corresponding to the exact order the sockets were registered in the tree's interface.
+        // Do not rely on auto-generated `PIN_*` constants for these dynamic nodes.
+        NodeGroupOutput::new().set_input(0, set_mat.out_geometry());
     });
 
     final_script.push_str(&geo_script);

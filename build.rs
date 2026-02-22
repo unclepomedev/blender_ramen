@@ -155,7 +155,7 @@ fn generate_inputs(
             };
 
         let mut final_const_name = safe_const_name.clone();
-        let mut counter = 1;
+        let mut counter = 0;
         while used_consts.contains(&final_const_name) {
             final_const_name = format!("{}_{}", safe_const_name, counter);
             counter += 1;
