@@ -12,8 +12,12 @@ class LiveLinkServer:
         self.host = host
         self.port = port
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.server_socket.bind((self.host, self.port))
+        try:
+            self.server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.server_socket.bind((self.host, self.port))
+        except OSError:
+            self.server_socket.close()
+            raise
         self.running = True
 
     def start(self):
@@ -71,9 +75,14 @@ class LiveLinkServer:
 if "ramen_server" in globals():
     globals()["ramen_server"].stop()
 
-server = LiveLinkServer()
-globals()["ramen_server"] = server
+try:
+    server = LiveLinkServer()
+    globals()["ramen_server"] = server
 
-thread = threading.Thread(target=server.start)
-thread.daemon = True
-thread.start()
+    thread = threading.Thread(target=server.start)
+    thread.daemon = True
+    thread.start()
+except OSError as err:
+    print(
+        f"❌ Blender Ramen: Failed to start live-link server on port {LIVE_LINK_PORT}: {err}"
+    )
