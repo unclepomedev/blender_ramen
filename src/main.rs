@@ -33,7 +33,7 @@ fn main() {
         let a = NodeSocket::<Float>::from(10.0);
         let b = NodeSocket::<Float>::from(5.0);
         let c = NodeSocket::<Float>::from(2.0);
-        let result = ramen_math!( (a + b) * c / 2.0 );
+        let result = ramen_math!(sin(a + b) * c / 2.0);
         let grid = GeometryNodeMeshGrid::new()
             .with_size_x(result)
             .with_vertices_x(10);

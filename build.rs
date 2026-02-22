@@ -96,9 +96,8 @@ impl NameSanitizer {
         let debug_mode = env::var("RAMEN_DEBUG_NODES").is_ok();
         if counter > 0 && debug_mode {
             println!(
-                "cargo:warning=API naming collision: '{}' was renamed to '{}'",
-                format!("{}_{}", prefix, s),
-                final_name
+                "cargo:warning=API naming collision: '{}_{}' was renamed to '{}'",
+                prefix, s, final_name
             );
         }
 
