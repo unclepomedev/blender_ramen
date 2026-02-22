@@ -13,11 +13,58 @@ impl Fold for MathFolder {
     fn fold_expr(&mut self, expr: Expr) -> Expr {
         let folded = syn::fold::fold_expr(self, expr);
 
-        if let Expr::Path(path) = &folded {
+        match &folded {
             // Unconditionally rewrite all path expressions to `path.clone()`.
             // This includes variables, constants, and enum variants.
-            // e.g.: `a` -> `a.clone()`
-            return syn::parse_quote!( #path.clone() );
+            Expr::Path(path) => {
+                if path.path.segments.len() == 1 {
+                    let ident_str = path.path.segments[0].ident.to_string();
+                    let math_funcs = ["sin", "cos", "tan", "pow", "round", "sqrt"];
+                    if math_funcs.contains(&ident_str.as_str()) {
+                        return folded;
+                    }
+                }
+                return syn::parse_quote!( #path.clone() );
+            }
+
+            Expr::Call(call) => {
+                if let Expr::Path(func_path) = &*call.func {
+                    let func_name = func_path.path.segments.last().unwrap().ident.to_string();
+                    let args = &call.args;
+
+                    let blender_op = match func_name.as_str() {
+                        "sin" => "SINE",
+                        "cos" => "COSINE",
+                        "tan" => "TANGENT",
+                        "round" => "ROUND",
+                        "sqrt" => "SQRT",
+                        "pow" => "POWER",
+                        _ => return folded,  // TODO: implement other functions
+                    };
+
+                    if args.len() == 1 {
+                        let arg = &args[0];
+                        return syn::parse_quote! {
+                            crate::core::nodes::ShaderNodeMath::new()
+                                .with_operation(#blender_op)
+                                .set_input(0, #arg)
+                                .out_value()
+                        };
+                    }
+                    else if args.len() == 2 {
+                        let arg1 = &args[0];
+                        let arg2 = &args[1];
+                        return syn::parse_quote! {
+                            crate::core::nodes::ShaderNodeMath::new()
+                                .with_operation(#blender_op)
+                                .set_input(0, #arg1)
+                                .set_input(1, #arg2)
+                                .out_value()
+                        };
+                    }
+                }
+            }
+            _ => {}
         }
 
         folded
