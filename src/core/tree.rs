@@ -1,4 +1,4 @@
-use crate::core::context::take_root_nodes;
+use crate::core::context::{enter_zone, exit_zone, take_root_nodes};
 use std::fmt::Write;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -27,10 +27,8 @@ impl NodeTree {
         }
     }
 
-    pub fn generate_script(&self) -> String {
-        let all_nodes = take_root_nodes();
+    fn generate_setup_script(&self) -> String {
         let mut code = String::new();
-
         match self.tree_type {
             TreeType::Shader => {
                 let _ = write!(
@@ -75,14 +73,26 @@ if not tree.interface.items_tree:
                 );
             }
         }
+        code
+    }
+
+    pub fn build<F>(&self, body: F) -> String
+    where
+        F: FnOnce(),
+    {
+        enter_zone();
+        body();
+        let my_nodes = exit_zone();
+
+        let mut code = self.generate_setup_script();
 
         code.push_str("\n# --- Node Creation Phase ---\n");
-        for node in &all_nodes {
+        for node in &my_nodes {
             code.push_str(&node.creation_script());
         }
 
         code.push_str("\n# --- Node Linking Phase ---\n");
-        for node in &all_nodes {
+        for node in &my_nodes {
             code.push_str(&node.links_script());
         }
 
