@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 
-mod context;
-mod nodes;
-mod ops;
-mod types;
-mod zone;
+pub mod context;
+pub mod nodes;
+pub mod ops;
+pub mod tree;
+pub mod types;
+pub mod zone;
