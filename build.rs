@@ -57,34 +57,15 @@ struct DumpRoot {
 }
 
 // name sanitize ----------------------------------------------------
-
-const APP_RESERVED_NAMES: &[&str] = &[
-    "new",
-    "name",
-    "inputs",
-    "outputs",
-    "output_defaults",
-    "properties",
-    "set_input",
-    "creation_script",
-    "links_script",
-    "from",
-    "into",
-    "id",
-    "add",
-];
-
 struct NameSanitizer {
     used_names: HashSet<String>,
 }
 
 impl NameSanitizer {
     fn new() -> Self {
-        let mut used_names = HashSet::new();
-        for &k in APP_RESERVED_NAMES {
-            used_names.insert(k.to_string());
+        Self {
+            used_names: HashSet::new(),
         }
-        Self { used_names }
     }
 
     fn sanitize_and_register(
@@ -96,7 +77,7 @@ impl NameSanitizer {
         let mut s = base_name.to_snake_case();
 
         if s.is_empty() {
-            s = format!("{}_{}", prefix, fallback_index);
+            s = format!("idx_{}", fallback_index);
         } else if s.chars().next().unwrap().is_numeric() {
             s = format!("_{}", s);
         }
@@ -105,16 +86,20 @@ impl NameSanitizer {
             s = format!("{}_", s);
         }
 
-        if !prefix.is_empty() && prefix != "input" && prefix != "output" && prefix != "prop" {
-            s = format!("{}_{}", prefix, s);
-        }
-
-        let mut final_name = s.clone();
+        let mut final_name = format!("{}_{}", prefix, s);
         let mut counter = 0;
 
         while self.used_names.contains(&final_name) {
-            final_name = format!("{}_{}", s, counter);
+            final_name = format!("{}_{}_{}", prefix, s, counter);
             counter += 1;
+        }
+        let debug_mode = env::var("RAMEN_DEBUG_NODES").is_ok();
+        if counter > 0 && debug_mode {
+            println!(
+                "cargo:warning=API naming collision: '{}' was renamed to '{}'",
+                format!("{}_{}", prefix, s),
+                final_name
+            );
         }
 
         self.used_names.insert(final_name.clone());
@@ -160,18 +145,48 @@ fn map_blender_type_to_rust(socket_type: &str) -> TokenStream {
 
 // code generator body -----------------------------------------------------------------------------
 
-fn generate_inputs(def: &NodeDef, sanitizer: &mut NameSanitizer) -> Vec<TokenStream> {
-    def.inputs.iter().enumerate().map(|(i, socket)| {
-        let safe_name = sanitizer.sanitize_and_register(&socket.name, i, "input");
+fn generate_inputs(
+    def: &NodeDef,
+    sanitizer: &mut NameSanitizer,
+) -> (Vec<TokenStream>, Vec<TokenStream>) {
+    let mut methods = Vec::new();
+    let mut constants = Vec::new();
+    let mut used_consts = HashSet::new();
+
+    for (i, socket) in def.inputs.iter().enumerate() {
+        let base_const_name = socket.name.to_snake_case().to_uppercase();
+        let safe_const_name =
+            if base_const_name.is_empty() || base_const_name.chars().next().unwrap().is_numeric() {
+                format!("PIN_{}", i)
+            } else {
+                format!("PIN_{}", base_const_name)
+            };
+
+        let mut final_const_name = safe_const_name.clone();
+        let mut counter = 0;
+        while used_consts.contains(&final_const_name) {
+            final_const_name = format!("{}_{}", safe_const_name, counter);
+            counter += 1;
+        }
+        used_consts.insert(final_const_name.clone());
+
+        let const_ident = format_ident!("{}", final_const_name);
+        constants.push(quote! {
+            pub const #const_ident: usize = #i;
+        });
+
+        let safe_name = sanitizer.sanitize_and_register(&socket.name, i, "with");
         let method_name = format_ident!("{}", safe_name);
         let rust_type = map_blender_type_to_rust(&socket.type_name);
-        quote! {
+        methods.push(quote! {
             pub fn #method_name(self, val: impl Into<crate::core::types::NodeSocket<#rust_type>>) -> Self {
                 crate::core::context::update_input(&self.name, #i, val.into().python_expr);
                 self
             }
-        }
-    }).collect()
+        });
+    }
+
+    (methods, constants)
 }
 
 fn generate_outputs(
@@ -185,7 +200,7 @@ fn generate_outputs(
         let rust_type = map_blender_type_to_rust(&socket.type_name);
         let socket_name = &socket.name;
 
-        let default_name = sanitizer.sanitize_and_register(&socket.name, i, "output");
+        let default_name = sanitizer.sanitize_and_register(&socket.name, i, "default");
         let method_default = format_ident!("{}", default_name);
         defaults.push(quote! {
             pub fn #method_default(self, val: impl Into<crate::core::types::NodeSocket<#rust_type>>) -> Self {
@@ -210,7 +225,7 @@ fn generate_outputs(
 
 fn generate_properties(def: &NodeDef, sanitizer: &mut NameSanitizer) -> Vec<TokenStream> {
     def.properties.iter().enumerate().map(|(i, prop)| {
-        let safe_name = sanitizer.sanitize_and_register(&prop.identifier, i, "prop");
+        let safe_name = sanitizer.sanitize_and_register(&prop.identifier, i, "with");
         let method_name = format_ident!("{}", safe_name);
         let prop_id = &prop.identifier;
 
@@ -231,7 +246,7 @@ fn generate_node_struct(node_id: &str, def: &NodeDef) -> TokenStream {
 
     let mut sanitizer = NameSanitizer::new();
 
-    let input_methods = generate_inputs(def, &mut sanitizer);
+    let (input_methods, input_constants) = generate_inputs(def, &mut sanitizer);
     let (output_defaults, output_getters) = generate_outputs(def, &mut sanitizer);
     let property_methods = generate_properties(def, &mut sanitizer);
 
@@ -240,6 +255,8 @@ fn generate_node_struct(node_id: &str, def: &NodeDef) -> TokenStream {
         pub struct #struct_name { pub name: String }
 
         impl #struct_name {
+            #(#input_constants)*
+
             pub fn new() -> Self {
                 let uuid_str = uuid::Uuid::new_v4().simple().to_string();
                 let name = format!("{}_{}", #struct_name_str, uuid_str.chars().take(12).collect::<String>());
@@ -252,8 +269,8 @@ fn generate_node_struct(node_id: &str, def: &NodeDef) -> TokenStream {
             #(#output_getters)*
             #(#property_methods)*
 
-            pub fn set_input(self, index: usize, val: impl Into<crate::core::types::NodeSocket<crate::core::types::Any>>) -> Self {
-                crate::core::context::update_input(&self.name, index, val.into().python_expr);
+            pub fn set_input<T>(self, index: usize, val: crate::core::types::NodeSocket<T>) -> Self {
+                crate::core::context::update_input(&self.name, index, val.python_expr);
                 self
             }
         }
