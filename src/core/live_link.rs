@@ -2,11 +2,13 @@ use std::io::Write;
 use std::net::TcpStream;
 use std::time::Duration;
 
+const LIVE_LINK_ADDR: &str = "127.0.0.1:8080";
+
 /// Sends the generated Python script to the Blender Live-Link server.
 pub fn send_to_blender(script: &str) {
     println!("🍜 Blender Ramen: Sending script via Live-Link...");
 
-    let target = "127.0.0.1:8080".parse().unwrap();
+    let target = LIVE_LINK_ADDR.parse().unwrap();
     match TcpStream::connect_timeout(&target, Duration::from_secs(2)) {
         Ok(mut stream) => {
             if let Err(e) = stream.write_all(script.as_bytes()) {

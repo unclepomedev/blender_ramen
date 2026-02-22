@@ -3,10 +3,11 @@ import socket
 import threading
 
 MAX_SCRIPT_SIZE = 10 * 1024 * 1024  # 10 MB
+LIVE_LINK_PORT = 8080
 
 
 class LiveLinkServer:
-    def __init__(self, host="127.0.0.1", port=8080):
+    def __init__(self, host="127.0.0.1", port=LIVE_LINK_PORT):
         self.host = host
         self.port = port
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -17,10 +18,10 @@ class LiveLinkServer:
     def start(self):
         self.server_socket.listen(1)
         print(f"🍜 Blender Ramen: Listening on {self.host}:{self.port}...")
+        self.server_socket.settimeout(1.0)
 
         while self.running:
             try:
-                self.server_socket.settimeout(1.0)
                 client, _addr = self.server_socket.accept()
 
                 try:
@@ -47,8 +48,8 @@ class LiveLinkServer:
 
             except socket.timeout:
                 continue
-            except Exception as e:
-                print(f"Error: {e}")
+            except (OSError, UnicodeDecodeError) as e:
+                print(f"❌ Server error: {e}")
 
     @staticmethod
     def execute_script(script):
@@ -62,6 +63,7 @@ class LiveLinkServer:
     def stop(self):
         self.running = False
         self.server_socket.close()
+
 
 if "ramen_server" in globals():
     globals()["ramen_server"].stop()
