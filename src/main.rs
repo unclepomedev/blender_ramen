@@ -1,5 +1,6 @@
 mod core;
 
+use crate::core::live_link::send_to_blender;
 use crate::core::nodes::{
     GeometryNodeMeshGrid, GeometryNodeSetMaterial, GeometryNodeStoreNamedAttribute,
     NodeGroupOutput, ShaderNodeAttribute, ShaderNodeEmission, ShaderNodeOutputMaterial,
@@ -10,7 +11,6 @@ use crate::core::types::{Material, NodeSocket, Vector};
 const SHARED_UV_ATTR: &str = "Procedural_UV";
 const MAT_NAME: &str = "MyRustMat";
 
-/// TODO: replace with live link client
 fn main() {
     let mut final_script = generate_script_header();
 
@@ -51,4 +51,5 @@ fn main() {
     final_script.push_str(&geo_script);
 
     println!("{}", final_script);
+    send_to_blender(&final_script);
 }
