@@ -3,10 +3,57 @@ use quote::quote;
 use syn::fold::Fold;
 use syn::{Expr, parse_macro_input};
 
-/// A struct for traversing and rewriting the AST.
+/// Maps a Rust identifier to a Blender `ShaderNodeMath` operation name and the expected number of arguments.
+fn get_blender_math_op(name: &str) -> Option<(&'static str, usize)> {
+    match name {
+        // 1 arg
+        "sin" => Some(("SINE", 1)),
+        "cos" => Some(("COSINE", 1)),
+        "tan" => Some(("TANGENT", 1)),
+        "asin" => Some(("ARCSINE", 1)),
+        "acos" => Some(("ARCCOSINE", 1)),
+        "atan" => Some(("ARCTANGENT", 1)),
+        "sinh" => Some(("SINH", 1)),
+        "cosh" => Some(("COSH", 1)),
+        "tanh" => Some(("TANH", 1)),
+        "sqrt" => Some(("SQRT", 1)),
+        "exp" => Some(("EXPONENT", 1)),
+        "log" => Some(("LOGARITHM", 1)),
+        "round" => Some(("ROUND", 1)),
+        "floor" => Some(("FLOOR", 1)),
+        "ceil" => Some(("CEIL", 1)),
+        "trunc" => Some(("TRUNC", 1)),
+        "fract" => Some(("FRACT", 1)),
+        "abs" => Some(("ABSOLUTE", 1)),
+        "sign" => Some(("SIGN", 1)),
+        "radians" => Some(("RADIANS", 1)),
+        "degrees" => Some(("DEGREES", 1)),
+
+        // 2 args
+        "atan2" => Some(("ARCTAN2", 2)),
+        "pow" => Some(("POWER", 2)),
+        "mod" => Some(("MODULO", 2)),
+        "min" => Some(("MINIMUM", 2)),
+        "max" => Some(("MAXIMUM", 2)),
+        "snap" => Some(("SNAP", 2)),
+        "pingpong" => Some(("PINGPONG", 2)),
+
+        // 3 args
+        "wrap" => Some(("WRAP", 3)),
+        "smooth_min" => Some(("SMOOTH_MIN", 3)),
+        "smooth_max" => Some(("SMOOTH_MAX", 3)),
+        "compare" => Some(("COMPARE", 3)),
+        "multiply_add" => Some(("MULTIPLY_ADD", 3)),
+
+        _ => None,
+    }
+}
+
+/// A structure for traversing the Abstract Syntax Tree (AST) and converting it into Blender node operations.
 ///
-/// It transforms path expressions (like variables) by appending `.clone()` to them,
-/// which is useful for reusing variables multiple times in mathematical expressions.
+/// Main roles:
+/// 1. Appends `.clone()` to path expressions (variables, etc.) to facilitate reuse within expressions.
+/// 2. Replaces specific math function calls with code that generates `ShaderNodeMath` nodes.
 struct MathFolder;
 
 impl Fold for MathFolder {
@@ -14,51 +61,49 @@ impl Fold for MathFolder {
         let folded = syn::fold::fold_expr(self, expr);
 
         match &folded {
-            // Unconditionally rewrite all path expressions to `path.clone()`.
-            // This includes variables, constants, and enum variants.
             Expr::Path(path) => {
+                // Do not clone identifiers registered as function names
                 if path.path.segments.len() == 1 {
                     let ident_str = path.path.segments[0].ident.to_string();
-                    let math_funcs = ["sin", "cos", "tan", "pow", "round", "sqrt"];
-                    if math_funcs.contains(&ident_str.as_str()) {
+                    if get_blender_math_op(&ident_str).is_some() {
                         return folded;
                     }
                 }
+                // Unconditionally append .clone() to other path expressions (variables, constants, etc.)
+                // This avoids ownership issues with NodeSocket.
                 return syn::parse_quote!( #path.clone() );
             }
 
             Expr::Call(call) => {
+                // Convert function calls to Blender ShaderNodeMath nodes
                 if let Expr::Path(func_path) = &*call.func {
-                    let func_name = func_path.path.segments.last().unwrap().ident.to_string();
-                    let args = &call.args;
+                    let func_name = func_path
+                        .path
+                        .segments
+                        .last()
+                        .expect("Function path must have at least one segment")
+                        .ident
+                        .to_string();
 
-                    let blender_op = match func_name.as_str() {
-                        "sin" => "SINE",
-                        "cos" => "COSINE",
-                        "tan" => "TANGENT",
-                        "round" => "ROUND",
-                        "sqrt" => "SQRT",
-                        "pow" => "POWER",
-                        _ => return folded,  // TODO: implement other functions
-                    };
+                    if let Some((blender_op, expected_args)) = get_blender_math_op(&func_name) {
+                        if call.args.len() != expected_args {
+                            let msg = format!(
+                                "ramen_math!: function '{}' expects {} argument(s), but got {}",
+                                func_name,
+                                expected_args,
+                                call.args.len()
+                            );
+                            return syn::parse_quote! { compile_error!(#msg) };
+                        }
 
-                    if args.len() == 1 {
-                        let arg = &args[0];
+                        let input_setters = call.args.iter().enumerate().map(|(i, arg)| {
+                            quote! { .set_input(#i, #arg) }
+                        });
+
                         return syn::parse_quote! {
                             crate::core::nodes::ShaderNodeMath::new()
                                 .with_operation(#blender_op)
-                                .set_input(0, #arg)
-                                .out_value()
-                        };
-                    }
-                    else if args.len() == 2 {
-                        let arg1 = &args[0];
-                        let arg2 = &args[1];
-                        return syn::parse_quote! {
-                            crate::core::nodes::ShaderNodeMath::new()
-                                .with_operation(#blender_op)
-                                .set_input(0, #arg1)
-                                .set_input(1, #arg2)
+                                #(#input_setters)*
                                 .out_value()
                         };
                     }
@@ -71,34 +116,38 @@ impl Fold for MathFolder {
     }
 }
 
-/// A macro for NodeSocket arithmetic expressions.
+/// A macro for describing arithmetic expressions for NodeSocket.
 ///
-/// This macro simplifies writing arithmetic operations by automatically cloning path expressions.
+/// Generates code that builds a Blender `ShaderNodeMath` node tree using standard Rust
+/// arithmetic symbols (`+`, `-`, `*`, `/`) and math functions.
 ///
-/// ### Transformation Semantics
-/// - All path expressions (e.g., `a`, `my_var`) in the input are rewritten to `path.clone()`.
-/// - Literals (e.g., `2.0`, `10`) are left untouched.
+/// ### Transformation Mechanism
+/// 1. **Automatic Variable Cloning**: Path expressions (variables or constants) in the expression
+///    are automatically appended with `.clone()`. This allows the same variable to be reused multiple times.
+/// 2. **Function Call Conversion**: Supported function calls are converted into corresponding `ShaderNodeMath` operations.
+/// 3. **Literals**: Numeric literals (e.g., `2.0`) are preserved as is.
 ///
-/// ### Intended Use Case
-/// Designed primarily for `NodeSocket` arithmetic where variables are often reused and need to be cloned.
+/// ### Supported Functions
+/// Supports the following functions available in `ShaderNodeMath` for Blender 5.x and later:
 ///
-/// ### Limitations
-/// All path expressions are unconditionally cloned. This includes:
-/// - Single-segment paths (variables)
-/// - Multi-segment paths (constants like `MY_CONST`, enum variants like `Option::None`)
-/// For `Copy` types or constants, this may result in unnecessary `.clone()` calls.
+/// - **1 argument**: `sin`, `cos`, `tan`, `asin`, `acos`, `atan`, `sinh`, `cosh`, `tanh`, `sqrt`, `exp`, `log`, `round`, `floor`, `ceil`, `trunc`, `fract`, `abs`, `sign`, `radians`, `degrees`
+/// - **2 arguments**: `atan2`, `pow`, `mod`, `min`, `max`, `snap`, `pingpong`
+/// - **3 arguments**: `wrap`, `smooth_min`, `smooth_max`, `compare`, `multiply_add`
 ///
 /// ### Example
 /// ```ignore
-/// ramen_math!( (a + b) * c / 2.0 )
-/// // becomes: (a.clone() + b.clone()) * c.clone() / 2.0
+/// let a = NodeSocket::<Float>::from(10.0);
+/// let b = NodeSocket::<Float>::from(5.0);
+/// let result = ramen_math!( sin(a + b) * 2.0 );
 /// ```
+///
+/// ### Limitations
+/// - Since `.clone()` is unconditionally appended to all path expressions, unnecessary clones
+///   may occur for constants implementing the `Copy` trait or enum variants.
 #[proc_macro]
 pub fn ramen_math(input: TokenStream) -> TokenStream {
     let expr = parse_macro_input!(input as Expr);
-
     let mut folder = MathFolder;
     let expanded = folder.fold_expr(expr);
-
     TokenStream::from(quote!( #expanded ))
 }
