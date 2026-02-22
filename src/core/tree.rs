@@ -54,19 +54,20 @@ if tree_name in bpy.data.node_groups:
     bpy.data.node_groups.remove(bpy.data.node_groups[tree_name])
 group = bpy.data.node_groups.new(name=tree_name, type='GeometryNodeTree')
 
-if not bpy.context.object:
-    bpy.ops.mesh.primitive_cube_add()
 obj = bpy.context.object
+if not obj:
+    raise RuntimeError("No active object in scene; please select an object to attach the GeoNodes modifier.")
 
 mod_name = 'RustNodes'
-if obj.modifiers.get(mod_name):
-    obj.modifiers.remove(obj.modifiers.get(mod_name))
+existing_mod = obj.modifiers.get(mod_name)
+if existing_mod:
+    obj.modifiers.remove(existing_mod)
+
 mod = obj.modifiers.new(name=mod_name, type='NODES')
 mod.node_group = group
 tree = group
 
-if not tree.interface.items_tree:
-    tree.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGeometry')
+tree.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGeometry')
 "#,
                     name = self.name
                 );
@@ -79,8 +80,22 @@ if not tree.interface.items_tree:
     where
         F: FnOnce(),
     {
+        struct PanicGuard {
+            is_panicking: bool,
+        }
+
+        impl Drop for PanicGuard {
+            fn drop(&mut self) {
+                if self.is_panicking {
+                    let _ = exit_zone();
+                }
+            }
+        }
+
         enter_zone();
+        let mut guard = PanicGuard { is_panicking: true };
         body();
+        guard.is_panicking = false;
         let my_nodes = exit_zone();
 
         let mut code = self.generate_setup_script();
@@ -100,5 +115,5 @@ if not tree.interface.items_tree:
 }
 
 pub fn generate_script_header() -> String {
-    "import bpy\nimport math\n".to_string()
+    "import bpy\n".to_string()
 }
