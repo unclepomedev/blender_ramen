@@ -94,6 +94,7 @@ impl NameSanitizer {
             counter += 1;
         }
         let debug_mode = env::var("RAMEN_DEBUG_NODES").is_ok();
+        #[allow(clippy::format_in_format_args)]
         if counter > 0 && debug_mode {
             println!(
                 "cargo:warning=API naming collision: '{}' was renamed to '{}'",
