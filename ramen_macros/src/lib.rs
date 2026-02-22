@@ -136,8 +136,12 @@ impl Fold for MathFolder {
 /// ```
 ///
 /// ### Limitations
-/// - Since `.clone()` is unconditionally appended to all path expressions, unnecessary clones
-///   may occur for constants implementing the `Copy` trait or enum variants.
+/// - Path expressions are appended with `.clone()` unless the single-segment name matches a
+///   supported math function. This means:
+///   - **Unnecessary clones** may occur for `Copy` constants or enum variants.
+///   - **Missing clones** (and potential move errors) may occur if a variable is named
+///     identically to a supported function (e.g., naming a variable `sin` or `cos`).
+///     Avoid reusing supported function names as variable names inside `ramen_math!`.
 #[proc_macro]
 pub fn ramen_math(input: TokenStream) -> TokenStream {
     let expr = parse_macro_input!(input as Expr);
