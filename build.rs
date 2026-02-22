@@ -77,7 +77,7 @@ impl NameSanitizer {
         let mut s = base_name.to_snake_case();
 
         if s.is_empty() {
-            s = format!("{}", fallback_index);
+            s = format!("idx_{}", fallback_index);
         } else if s.chars().next().unwrap().is_numeric() {
             s = format!("_{}", s);
         }
@@ -92,6 +92,14 @@ impl NameSanitizer {
         while self.used_names.contains(&final_name) {
             final_name = format!("{}_{}_{}", prefix, s, counter);
             counter += 1;
+        }
+        let debug_mode = env::var("RAMEN_DEBUG_NODES").is_ok();
+        if counter > 0 && debug_mode {
+            println!(
+                "cargo:warning=API naming collision: '{}' was renamed to '{}'",
+                format!("{}_{}", prefix, s),
+                final_name
+            );
         }
 
         self.used_names.insert(final_name.clone());
