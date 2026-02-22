@@ -74,13 +74,10 @@ impl Fold for MathFolder {
             Expr::Call(call) => {
                 // Convert function calls to Blender ShaderNodeMath nodes
                 if let Expr::Path(func_path) = &*call.func {
-                    let func_name = func_path
-                        .path
-                        .segments
-                        .last()
-                        .expect("Function path must have at least one segment")
-                        .ident
-                        .to_string();
+                    let func_name = match func_path.path.segments.last() {
+                        Some(seg) => seg.ident.to_string(),
+                        None => return folded,
+                    };
 
                     if let Some((blender_op, expected_args)) = get_blender_math_op(&func_name) {
                         if call.args.len() != expected_args {
