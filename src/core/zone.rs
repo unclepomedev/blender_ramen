@@ -80,7 +80,7 @@ where
     F: FnOnce(T) -> T,
 {
     let rep_out = GeometryNodeRepeatOutput::new();
-    let rep_in = GeometryNodeRepeatInput::new().iterations(iterations);
+    let rep_in = GeometryNodeRepeatInput::new().with_iterations(iterations);
 
     let in_name = &rep_in.name;
     let out_name = &rep_out.name;

@@ -19,7 +19,7 @@ macro_rules! impl_node_op {
             type Output = NodeSocket<$Type>;
             fn $method(self, rhs: &NodeSocket<$Type>) -> Self::Output {
                 $Node::new()
-                    .operation($op_str)
+                    .with_operation($op_str)
                     .set_input(0, self.clone())
                     .set_input(1, rhs.clone())
                     .$out()
