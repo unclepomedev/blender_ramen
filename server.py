@@ -1,6 +1,7 @@
 import bpy
 import socket
 import threading
+import traceback
 
 MAX_SCRIPT_SIZE = 10 * 1024 * 1024  # 10 MB
 LIVE_LINK_PORT = 8080
@@ -23,6 +24,7 @@ class LiveLinkServer:
         while self.running:
             try:
                 client, _addr = self.server_socket.accept()
+                client.settimeout(5.0)
 
                 try:
                     data = b""
@@ -49,15 +51,16 @@ class LiveLinkServer:
             except socket.timeout:
                 continue
             except (OSError, UnicodeDecodeError) as e:
-                print(f"❌ Server error: {e}")
+                if self.running:
+                    print(f"❌ Server error: {e}")
 
     @staticmethod
     def execute_script(script):
         try:
             # Note: Arbitrary code execution from localhost is by design. This tool assumes a trusted local development environment.
             exec(script, globals())
-        except Exception as e:
-            print(f"❌ Script execution failed:\n{e}")
+        except Exception:
+            print(f"❌ Script execution failed:\n{traceback.format_exc()}")
         return None
 
     def stop(self):
