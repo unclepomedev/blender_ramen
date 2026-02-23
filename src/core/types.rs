@@ -158,7 +158,11 @@ pub trait NodeGroupInputExt {
 
 impl NodeGroupInputExt for crate::core::nodes::NodeGroupInput {
     fn socket<T>(&self, name: &str) -> NodeSocket<T> {
-        NodeSocket::new_expr(format!("{}.outputs['{}']", self.name, name))
+        NodeSocket::new_expr(format!(
+            "{}.outputs[{}]",
+            self.name,
+            python_string_literal(name)
+        ))
     }
 }
 
@@ -168,7 +172,11 @@ pub trait GeometryNodeGroupExt {
 
 impl GeometryNodeGroupExt for crate::core::nodes::GeometryNodeGroup {
     fn out_socket<T>(&self, name: &str) -> NodeSocket<T> {
-        NodeSocket::new_expr(format!("{}.outputs['{}']", self.name, name))
+        NodeSocket::new_expr(format!(
+            "{}.outputs[{}]",
+            self.name,
+            python_string_literal(name)
+        ))
     }
 }
 

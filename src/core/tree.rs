@@ -1,5 +1,5 @@
 use crate::core::context::{enter_zone, exit_zone};
-use crate::core::types::SocketDef;
+use crate::core::types::{SocketDef, python_string_literal};
 use std::fmt::Write;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -147,17 +147,19 @@ tree = bpy.data.node_groups.new(name=tree_name, type='ShaderNodeTree')
             }
         }
         for (name, s_type) in &self.inputs {
+            let safe_name = python_string_literal(name);
             let _ = writeln!(
                 &mut code,
-                "tree.interface.new_socket('{}', in_out='INPUT', socket_type='{}')",
-                name, s_type
+                "tree.interface.new_socket({}, in_out='INPUT', socket_type='{}')",
+                safe_name, s_type
             );
         }
         for (name, s_type) in &self.outputs {
+            let safe_name = python_string_literal(name);
             let _ = writeln!(
                 &mut code,
-                "tree.interface.new_socket('{}', in_out='OUTPUT', socket_type='{}')",
-                name, s_type
+                "tree.interface.new_socket({}, in_out='OUTPUT', socket_type='{}')",
+                safe_name, s_type
             );
         }
 

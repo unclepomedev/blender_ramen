@@ -31,62 +31,68 @@ class LiveLinkServer:
             try:
                 client, _addr = self.server_socket.accept()
                 client.settimeout(5.0)
-
                 try:
-                    chunks = []
-                    total = 0
-                    while True:
-                        packet = client.recv(4096)
-                        if not packet:
-                            break
-                        chunks.append(packet)
-                        total += len(packet)
-                        if total > MAX_SCRIPT_SIZE:
-                            print(
-                                "❌ Received data exceeds maximum allowed size, dropping."
-                            )
-                            chunks = []
-                            break
-
-                    script = b"".join(chunks).decode("utf-8")
-
-                    if script:
-                        print("✅ Received script from Rust, executing...")
-
-                        cancelled = threading.Event()
-                        res_q = queue.Queue()
-
-                        def task(s=script, q=res_q, c=cancelled):
-                            try:
-                                if c.is_set():
-                                    return None
-                                exec(s, globals())
-                                q.put(b"OK")
-                            except Exception:
-                                q.put(
-                                    f"ERROR\n{traceback.format_exc()}".encode("utf-8")
-                                )
-                            return None
-
-                        bpy.app.timers.register(task)
-
-                        try:
-                            response = res_q.get(timeout=5.0)
-                        except queue.Empty:
-                            cancelled.set()
-                            response = b"ERROR\nExecution timed out in Blender."
-                        client.sendall(response)
-                    else:
-                        client.sendall(b"ERROR\nReceived empty script.")
-
+                    self._handle_client(client)
                 finally:
                     client.close()
-
             except socket.timeout:
                 continue
             except (OSError, UnicodeDecodeError) as e:
                 if self.running:
                     print(f"❌ Server error: {e}")
+
+    def _handle_client(self, client):
+        chunks = []
+        total = 0
+        is_oversize = False
+
+        while True:
+            packet = client.recv(4096)
+            if not packet:
+                break
+            chunks.append(packet)
+            total += len(packet)
+            if total > MAX_SCRIPT_SIZE:
+                is_oversize = True
+                break
+
+        if is_oversize:
+            print("❌ Received data exceeds maximum allowed size, dropping.")
+            client.sendall(b"ERROR\nReceived data exceeds maximum allowed size.")
+            return
+
+        if not chunks:
+            client.sendall(b"ERROR\nReceived empty script.")
+            return
+
+        script = b"".join(chunks).decode("utf-8")
+        print("✅ Received script from Rust, executing...")
+
+        response = self._execute_in_blender(script)
+        client.sendall(response)
+
+    @staticmethod
+    def _execute_in_blender(script):
+        cancelled = threading.Event()
+        res_q = queue.Queue()
+
+        def task():
+            if cancelled.is_set():
+                return None
+            try:
+                exec(script, globals())
+                res_q.put(b"OK")
+            except Exception:
+                res_q.put(f"ERROR\n{traceback.format_exc()}".encode("utf-8"))
+            return None
+
+        bpy.app.timers.register(task)
+
+        try:
+            return res_q.get(timeout=5.0)
+        except queue.Empty:
+            cancelled.set()
+            return b"ERROR\nExecution timed out in Blender."
 
     def stop(self):
         self.running = False
