@@ -223,7 +223,10 @@ pub fn call_geometry_group(group_name: &str) -> crate::core::nodes::GeometryNode
     crate::core::context::update_property(
         &node.name,
         "node_tree",
-        format!("bpy.data.node_groups['{}']", group_name),
+        format!(
+            "bpy.data.node_groups[{}]",
+            python_string_literal(group_name)
+        ),
     );
     node
 }
@@ -234,7 +237,10 @@ pub fn call_shader_group(group_name: &str) -> crate::core::nodes::ShaderNodeGrou
     crate::core::context::update_property(
         &node.name,
         "node_tree",
-        format!("bpy.data.node_groups['{}']", group_name),
+        format!(
+            "bpy.data.node_groups[{}]",
+            python_string_literal(group_name)
+        ),
     );
     node
 }

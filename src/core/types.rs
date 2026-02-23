@@ -180,6 +180,20 @@ impl GeometryNodeGroupExt for crate::core::nodes::GeometryNodeGroup {
     }
 }
 
+pub trait ShaderNodeGroupExt {
+    fn out_socket<T>(&self, name: &str) -> NodeSocket<T>;
+}
+
+impl ShaderNodeGroupExt for crate::core::nodes::ShaderNodeGroup {
+    fn out_socket<T>(&self, name: &str) -> NodeSocket<T> {
+        NodeSocket::new_expr(format!(
+            "{}.outputs[{}]",
+            self.name,
+            python_string_literal(name)
+        ))
+    }
+}
+
 macro_rules! impl_socket_def {
     ($type:ident, $sock_type:expr, $def_name:expr, $blender_sock:expr) => {
         impl SocketDef for $type {
