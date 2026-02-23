@@ -12,6 +12,8 @@ pub enum TreeType {
 pub struct NodeTree {
     name: String,
     tree_type: TreeType,
+    inputs: Vec<(String, String)>,
+    outputs: Vec<(String, String)>,
 }
 
 impl NodeTree {
@@ -19,6 +21,8 @@ impl NodeTree {
         Self {
             name: name.to_string(),
             tree_type: TreeType::Geometry,
+            inputs: vec![],
+            outputs: vec![],
         }
     }
 
@@ -26,6 +30,8 @@ impl NodeTree {
         Self {
             name: name.to_string(),
             tree_type: TreeType::Shader,
+            inputs: vec![],
+            outputs: vec![],
         }
     }
 
@@ -33,6 +39,8 @@ impl NodeTree {
         Self {
             name: name.to_string(),
             tree_type: TreeType::GeometryGroup,
+            inputs: vec![],
+            outputs: vec![],
         }
     }
 
@@ -40,7 +48,21 @@ impl NodeTree {
         Self {
             name: name.to_string(),
             tree_type: TreeType::ShaderGroup,
+            inputs: vec![],
+            outputs: vec![],
         }
+    }
+
+    pub fn with_input(mut self, name: &str, socket_type: &str) -> Self {
+        self.inputs
+            .push((name.to_string(), socket_type.to_string()));
+        self
+    }
+
+    pub fn with_output(mut self, name: &str, socket_type: &str) -> Self {
+        self.outputs
+            .push((name.to_string(), socket_type.to_string()));
+        self
     }
 
     fn generate_setup_script(&self) -> String {
@@ -115,6 +137,21 @@ tree = bpy.data.node_groups.new(name=tree_name, type='ShaderNodeTree')
                 );
             }
         }
+        for (name, s_type) in &self.inputs {
+            let _ = writeln!(
+                &mut code,
+                "tree.interface.new_socket('{}', in_out='INPUT', socket_type='{}')",
+                name, s_type
+            );
+        }
+        for (name, s_type) in &self.outputs {
+            let _ = writeln!(
+                &mut code,
+                "tree.interface.new_socket('{}', in_out='OUTPUT', socket_type='{}')",
+                name, s_type
+            );
+        }
+
         code
     }
 
@@ -172,12 +209,10 @@ pub fn generate_script_header() -> String {
 /// call and instantiate geometry node groups
 pub fn call_geometry_group(group_name: &str) -> crate::core::nodes::GeometryNodeGroup {
     let node = crate::core::nodes::GeometryNodeGroup::new();
-    crate::core::context::update_post_creation(
+    crate::core::context::update_property(
         &node.name,
-        format!(
-            "{}.node_tree = bpy.data.node_groups['{}']\n",
-            node.name, group_name
-        ),
+        "node_tree",
+        format!("bpy.data.node_groups['{}']", group_name),
     );
     node
 }
@@ -185,12 +220,10 @@ pub fn call_geometry_group(group_name: &str) -> crate::core::nodes::GeometryNode
 /// call and instantiate shader node groups
 pub fn call_shader_group(group_name: &str) -> crate::core::nodes::ShaderNodeGroup {
     let node = crate::core::nodes::ShaderNodeGroup::new();
-    crate::core::context::update_post_creation(
+    crate::core::context::update_property(
         &node.name,
-        format!(
-            "{}.node_tree = bpy.data.node_groups['{}']\n",
-            node.name, group_name
-        ),
+        "node_tree",
+        format!("bpy.data.node_groups['{}']", group_name),
     );
     node
 }
