@@ -75,24 +75,27 @@ impl NodeTree {
     }
 
     fn setup_shader(&self) -> String {
+        let safe_name = python_string_literal(&self.name);
         format!(
             r#"
 # --- Setup Shader: {name} ---
-mat = bpy.data.materials.get('{name}')
+mat = bpy.data.materials.get({safe_name})
 if not mat:
-    mat = bpy.data.materials.new(name='{name}')
+    mat = bpy.data.materials.new(name={safe_name})
 tree = mat.node_tree
 tree.nodes.clear()
 "#,
-            name = self.name
+            name = self.name,
+            safe_name = safe_name
         )
     }
 
     fn setup_geometry(&self) -> String {
+        let safe_name = python_string_literal(&self.name);
         format!(
             r#"
 # --- Setup GeoNodes: {name} ---
-tree_name = '{name}'
+tree_name = {safe_name}
 if tree_name in bpy.data.node_groups:
     bpy.data.node_groups.remove(bpy.data.node_groups[tree_name])
 group = bpy.data.node_groups.new(name=tree_name, type='GeometryNodeTree')
@@ -112,7 +115,8 @@ tree = group
 
 tree.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGeometry')
 "#,
-            name = self.name
+            name = self.name,
+            safe_name = safe_name
         )
     }
 
@@ -120,13 +124,14 @@ tree.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGe
         let safe_name = python_string_literal(&self.name);
         format!(
             r#"
-# --- Setup {label}: {safe_name} ---
-tree_name = '{safe_name}'
+# --- Setup {label}: {name} ---
+tree_name = {safe_name}
 if tree_name in bpy.data.node_groups:
     bpy.data.node_groups.remove(bpy.data.node_groups[tree_name])
 tree = bpy.data.node_groups.new(name=tree_name, type='{tree_type_id}')
 "#,
             label = label,
+            name = self.name,
             safe_name = safe_name,
             tree_type_id = tree_type_id
         )
