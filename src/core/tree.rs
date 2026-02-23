@@ -117,16 +117,17 @@ tree.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGe
     }
 
     fn setup_group(&self, label: &str, tree_type_id: &str) -> String {
+        let safe_name = python_string_literal(&self.name);
         format!(
             r#"
-# --- Setup {label}: {name} ---
-tree_name = '{name}'
+# --- Setup {label}: {safe_name} ---
+tree_name = '{safe_name}'
 if tree_name in bpy.data.node_groups:
     bpy.data.node_groups.remove(bpy.data.node_groups[tree_name])
 tree = bpy.data.node_groups.new(name=tree_name, type='{tree_type_id}')
 "#,
             label = label,
-            name = self.name,
+            safe_name = safe_name,
             tree_type_id = tree_type_id
         )
     }
