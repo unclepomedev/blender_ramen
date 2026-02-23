@@ -9,6 +9,7 @@ use ramen_macros::ramen_math;
 
 const SHARED_UV_ATTR: &str = "Procedural_UV";
 const MAT_NAME: &str = "MyRustMat";
+const GEO_NAME: &str = "LinkTest";
 
 fn main() {
     let mut final_script = generate_script_header();
@@ -27,8 +28,8 @@ fn main() {
     // ==========================================
     // 2. Geometry Node Tree
     // ==========================================
-    let geo_script = NodeTree::new_geometry("LinkTest").build(|| {
-        let result = ramen_math!(sin(10.0 + 5.0) * 2.0 / 2.0);
+    let geo_script = NodeTree::new_geometry(GEO_NAME).build(|| {
+        let result = ramen_math!(sin(10.0 + 5.0) * 2.0 / 0.5);
         let grid = GeometryNodeMeshGrid::new()
             .with_size_x(result)
             .with_vertices_x(10);
