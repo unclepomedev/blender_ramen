@@ -146,6 +146,15 @@ impl<T> From<&NodeSocket<T>> for NodeSocket<T> {
     }
 }
 
+impl From<&str> for NodeSocket<Material> {
+    fn from(mat_name: &str) -> Self {
+        Self::new_expr(format!(
+            "bpy.data.materials[{}]",
+            python_string_literal(mat_name)
+        ))
+    }
+}
+
 pub trait SocketDef {
     fn socket_type() -> &'static str;
     fn default_name() -> &'static str;
@@ -243,6 +252,26 @@ macro_rules! impl_into_any {
 impl_into_any!(
     Geo, Float, Int, Vector, Color, StringType, Bool, Material, Object, Collection, Image, Texture
 );
+
+pub struct AttrDomain;
+impl AttrDomain {
+    pub const POINT: &'static str = "POINT";
+    pub const EDGE: &'static str = "EDGE";
+    pub const FACE: &'static str = "FACE";
+    pub const CORNER: &'static str = "CORNER";
+    pub const SPLINE: &'static str = "SPLINE";
+    pub const INSTANCE: &'static str = "INSTANCE";
+}
+
+pub struct AttrType;
+impl AttrType {
+    pub const FLOAT: &'static str = "FLOAT";
+    pub const INT: &'static str = "INT";
+    pub const VECTOR: &'static str = "FLOAT_VECTOR";
+    pub const COLOR: &'static str = "FLOAT_COLOR";
+    pub const BOOLEAN: &'static str = "BOOLEAN";
+    pub const STRING: &'static str = "STRING";
+}
 
 // ---------------------------------------------------------
 // unittest

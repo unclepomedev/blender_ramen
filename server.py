@@ -80,6 +80,7 @@ class LiveLinkServer:
             if cancelled.is_set():
                 return None
             try:
+                # Note: Arbitrary code execution from localhost is by design. This tool assumes a trusted local development environment.
                 exec(script, globals())
                 res_q.put(b"OK")
             except Exception:
