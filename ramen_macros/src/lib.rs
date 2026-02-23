@@ -91,11 +91,11 @@ impl Fold for MathFolder {
                         }
 
                         let input_setters = call.args.iter().enumerate().map(|(i, arg)| {
-                            quote! { .set_input(#i, crate::core::types::NodeSocket::<crate::core::types::Float>::from(#arg)) }
+                            quote! { .set_input(#i, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Float>::from(#arg)) }
                         });
 
                         return syn::parse_quote! {
-                            crate::core::nodes::ShaderNodeMath::new()
+                            blender_ramen::core::nodes::ShaderNodeMath::new()
                                 .with_operation(#blender_op)
                                 #(#input_setters)*
                                 .out_value()
