@@ -149,6 +149,7 @@ impl<T> From<&NodeSocket<T>> for NodeSocket<T> {
 pub trait SocketDef {
     fn socket_type() -> &'static str;
     fn default_name() -> &'static str;
+    fn blender_socket_type() -> &'static str;
 }
 
 pub trait NodeGroupInputExt {
@@ -172,7 +173,7 @@ impl GeometryNodeGroupExt for crate::core::nodes::GeometryNodeGroup {
 }
 
 macro_rules! impl_socket_def {
-    ($type:ident, $sock_type:expr, $def_name:expr) => {
+    ($type:ident, $sock_type:expr, $def_name:expr, $blender_sock:expr) => {
         impl SocketDef for $type {
             fn socket_type() -> &'static str {
                 $sock_type
@@ -180,22 +181,30 @@ macro_rules! impl_socket_def {
             fn default_name() -> &'static str {
                 $def_name
             }
+            fn blender_socket_type() -> &'static str {
+                $blender_sock
+            }
         }
     };
 }
 
-impl_socket_def!(Geo, "GEOMETRY", "Geometry");
-impl_socket_def!(Float, "FLOAT", "Value");
-impl_socket_def!(Int, "INT", "Value");
-impl_socket_def!(Vector, "VECTOR", "Vector");
-impl_socket_def!(Color, "RGBA", "Color");
-impl_socket_def!(Bool, "BOOLEAN", "Boolean");
-impl_socket_def!(StringType, "STRING", "String");
-impl_socket_def!(Material, "MATERIAL", "Material");
-impl_socket_def!(Object, "OBJECT", "Object");
-impl_socket_def!(Collection, "COLLECTION", "Collection");
-impl_socket_def!(Image, "IMAGE", "Image");
-impl_socket_def!(Texture, "TEXTURE", "Texture");
+impl_socket_def!(Geo, "GEOMETRY", "Geometry", "NodeSocketGeometry");
+impl_socket_def!(Float, "FLOAT", "Value", "NodeSocketFloat");
+impl_socket_def!(Int, "INT", "Value", "NodeSocketInt");
+impl_socket_def!(Vector, "VECTOR", "Vector", "NodeSocketVector");
+impl_socket_def!(Color, "RGBA", "Color", "NodeSocketColor");
+impl_socket_def!(Bool, "BOOLEAN", "Boolean", "NodeSocketBool");
+impl_socket_def!(StringType, "STRING", "String", "NodeSocketString");
+impl_socket_def!(Material, "MATERIAL", "Material", "NodeSocketMaterial");
+impl_socket_def!(Object, "OBJECT", "Object", "NodeSocketObject");
+impl_socket_def!(
+    Collection,
+    "COLLECTION",
+    "Collection",
+    "NodeSocketCollection"
+);
+impl_socket_def!(Image, "IMAGE", "Image", "NodeSocketImage");
+impl_socket_def!(Texture, "TEXTURE", "Texture", "NodeSocketTexture");
 
 macro_rules! impl_into_any {
     ($($t:ty),*) => {

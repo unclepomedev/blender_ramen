@@ -33,20 +33,22 @@ class LiveLinkServer:
                 client.settimeout(5.0)
 
                 try:
-                    data = b""
+                    chunks = []
+                    total = 0
                     while True:
                         packet = client.recv(4096)
                         if not packet:
                             break
-                        data += packet
-                        if len(data) > MAX_SCRIPT_SIZE:
+                        chunks.append(packet)
+                        total += len(packet)
+                        if total > MAX_SCRIPT_SIZE:
                             print(
                                 "❌ Received data exceeds maximum allowed size, dropping."
                             )
-                            data = b""
+                            chunks = []
                             break
 
-                    script = data.decode("utf-8")
+                    script = b"".join(chunks).decode("utf-8")
 
                     if script:
                         print("✅ Received script from Rust, executing...")
