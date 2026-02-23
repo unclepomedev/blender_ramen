@@ -51,10 +51,13 @@ class LiveLinkServer:
                     if script:
                         print("✅ Received script from Rust, executing...")
 
+                        cancelled = threading.Event()
                         res_q = queue.Queue()
 
-                        def task(s=script, q=res_q):
+                        def task(s=script, q=res_q, c=cancelled):
                             try:
+                                if c.is_set():
+                                    return None
                                 exec(s, globals())
                                 q.put(b"OK")
                             except Exception:
@@ -68,8 +71,11 @@ class LiveLinkServer:
                         try:
                             response = res_q.get(timeout=5.0)
                         except queue.Empty:
+                            cancelled.set()
                             response = b"ERROR\nExecution timed out in Blender."
                         client.sendall(response)
+                    else:
+                        client.sendall(b"ERROR\nReceived empty script.")
 
                 finally:
                     client.close()

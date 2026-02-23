@@ -54,12 +54,20 @@ impl NodeTree {
     }
 
     pub fn with_input(mut self, name: &str, socket_type: &str) -> Self {
+        assert!(
+            self.tree_type == TreeType::GeometryGroup || self.tree_type == TreeType::ShaderGroup,
+            "with_input can only be used on Group Node Trees!"
+        );
         self.inputs
             .push((name.to_string(), socket_type.to_string()));
         self
     }
 
     pub fn with_output(mut self, name: &str, socket_type: &str) -> Self {
+        assert!(
+            self.tree_type == TreeType::GeometryGroup || self.tree_type == TreeType::ShaderGroup,
+            "with_output can only be used on Group Node Trees!"
+        );
         self.outputs
             .push((name.to_string(), socket_type.to_string()));
         self

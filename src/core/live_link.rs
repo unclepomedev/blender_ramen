@@ -16,6 +16,7 @@ pub fn send_to_blender(script: &str) {
                 return;
             }
             let _ = stream.shutdown(Shutdown::Write);
+            stream.set_read_timeout(Some(Duration::from_secs(10))).ok();
             let mut response = String::new();
             if stream.read_to_string(&mut response).is_ok() {
                 if response.starts_with("ERROR") {
