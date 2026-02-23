@@ -2,7 +2,7 @@ dump-nodes:
     blup run -- --background --factory-startup --python dump_nodes.py
 
 fmt-py:
-    uv run ruff format dump_nodes.py tests/
+    uv run ruff format dump_nodes.py tests/ server.py
 
 test-py:
     uv run pytest

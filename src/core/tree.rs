@@ -5,6 +5,8 @@ use std::fmt::Write;
 pub enum TreeType {
     Geometry,
     Shader,
+    GeometryGroup,
+    ShaderGroup,
 }
 
 pub struct NodeTree {
@@ -24,6 +26,20 @@ impl NodeTree {
         Self {
             name: name.to_string(),
             tree_type: TreeType::Shader,
+        }
+    }
+
+    pub fn new_geometry_group(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            tree_type: TreeType::GeometryGroup,
+        }
+    }
+
+    pub fn new_shader_group(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            tree_type: TreeType::ShaderGroup,
         }
     }
 
@@ -72,6 +88,32 @@ tree.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGe
                     name = self.name
                 );
             }
+            TreeType::GeometryGroup => {
+                let _ = write!(
+                    &mut code,
+                    r#"
+# --- Setup GeoNodes Group: {name} ---
+tree_name = '{name}'
+if tree_name in bpy.data.node_groups:
+    bpy.data.node_groups.remove(bpy.data.node_groups[tree_name])
+tree = bpy.data.node_groups.new(name=tree_name, type='GeometryNodeTree')
+"#,
+                    name = self.name
+                );
+            }
+            TreeType::ShaderGroup => {
+                let _ = write!(
+                    &mut code,
+                    r#"
+# --- Setup Shader Group: {name} ---
+tree_name = '{name}'
+if tree_name in bpy.data.node_groups:
+    bpy.data.node_groups.remove(bpy.data.node_groups[tree_name])
+tree = bpy.data.node_groups.new(name=tree_name, type='ShaderNodeTree')
+"#,
+                    name = self.name
+                );
+            }
         }
         code
     }
@@ -105,6 +147,15 @@ tree.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGe
             code.push_str(&node.creation_script());
         }
 
+        // For calling custom groups, etc
+        code.push_str("\n# --- Node Post Creation Phase ---\n");
+        for node in &my_nodes {
+            if !node.post_creation_script.is_empty() {
+                code.push_str(&node.post_creation_script);
+                code.push('\n');
+            }
+        }
+
         code.push_str("\n# --- Node Linking Phase ---\n");
         for node in &my_nodes {
             code.push_str(&node.links_script());
@@ -116,4 +167,30 @@ tree.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGe
 
 pub fn generate_script_header() -> String {
     "import bpy\n".to_string()
+}
+
+/// call and instantiate geometry node groups
+pub fn call_geometry_group(group_name: &str) -> crate::core::nodes::GeometryNodeGroup {
+    let node = crate::core::nodes::GeometryNodeGroup::new();
+    crate::core::context::update_post_creation(
+        &node.name,
+        format!(
+            "{}.node_tree = bpy.data.node_groups['{}']\n",
+            node.name, group_name
+        ),
+    );
+    node
+}
+
+/// call and instantiate shader node groups
+pub fn call_shader_group(group_name: &str) -> crate::core::nodes::ShaderNodeGroup {
+    let node = crate::core::nodes::ShaderNodeGroup::new();
+    crate::core::context::update_post_creation(
+        &node.name,
+        format!(
+            "{}.node_tree = bpy.data.node_groups['{}']\n",
+            node.name, group_name
+        ),
+    );
+    node
 }

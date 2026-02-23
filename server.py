@@ -1,7 +1,9 @@
-import bpy
+import queue
 import socket
 import threading
 import traceback
+
+import bpy
 
 MAX_SCRIPT_SIZE = 10 * 1024 * 1024  # 10 MB
 LIVE_LINK_PORT = 8080
@@ -45,27 +47,38 @@ class LiveLinkServer:
                             break
 
                     script = data.decode("utf-8")
+
+                    if script:
+                        print("✅ Received script from Rust, executing...")
+
+                        res_q = queue.Queue()
+
+                        def task(s=script, q=res_q):
+                            try:
+                                exec(s, globals())
+                                q.put(b"OK")
+                            except Exception:
+                                q.put(
+                                    f"ERROR\n{traceback.format_exc()}".encode("utf-8")
+                                )
+                            return None
+
+                        bpy.app.timers.register(task)
+
+                        try:
+                            response = res_q.get(timeout=5.0)
+                        except queue.Empty:
+                            response = b"ERROR\nExecution timed out in Blender."
+                        client.sendall(response)
+
                 finally:
                     client.close()
-
-                if script:
-                    print("✅ Received script from Rust, executing...")
-                    bpy.app.timers.register(lambda s=script: self.execute_script(s))
 
             except socket.timeout:
                 continue
             except (OSError, UnicodeDecodeError) as e:
                 if self.running:
                     print(f"❌ Server error: {e}")
-
-    @staticmethod
-    def execute_script(script):
-        try:
-            # Note: Arbitrary code execution from localhost is by design. This tool assumes a trusted local development environment.
-            exec(script, globals())
-        except Exception:
-            print(f"❌ Script execution failed:\n{traceback.format_exc()}")
-        return None
 
     def stop(self):
         self.running = False
