@@ -1,10 +1,10 @@
 use blender_ramen::core::live_link::send_to_blender;
 use blender_ramen::core::nodes::{
-    GeometryNodeMeshGrid, GeometryNodeSetPosition, NodeGroupInput, NodeGroupOutput,
-    ShaderNodeCombineXyz,
+    GeometryNodeInputPosition, GeometryNodeMeshGrid, GeometryNodeSetPosition, NodeGroupInput,
+    NodeGroupOutput, ShaderNodeCombineXyz, ShaderNodeSeparateXyz,
 };
 use blender_ramen::core::tree::{NodeTree, call_geometry_group, generate_script_header};
-use blender_ramen::core::types::{Float, GeometryNodeGroupExt, NodeGroupInputExt, NodeSocket};
+use blender_ramen::core::types::{Float, GeometryNodeGroupExt, NodeGroupInputExt};
 use ramen_macros::ramen_math;
 const SUB_NAME: &str = "ComplexSquare";
 const MAIN_TREE_NAME: &str = "MainTree";
@@ -45,16 +45,19 @@ fn main() {
             .with_vertices_x(50)
             .with_vertices_y(50);
 
-        let sample_x = NodeSocket::<Float>::from(1.5);
-        let sample_y = NodeSocket::<Float>::from(-0.5);
+        let pos = GeometryNodeInputPosition::new().out_position();
+        let sep_pos = ShaderNodeSeparateXyz::new().with_vector(pos);
+        let x = sep_pos.out_x();
+        let y = sep_pos.out_y();
 
-        let complex_sq_node = call_geometry_group(SUB_NAME)
-            .set_input(0, sample_x)
-            .set_input(1, sample_y);
+        let step = call_geometry_group("ComplexSquare")
+            .set_input(0, x)
+            .set_input(1, y);
 
-        let result_x = complex_sq_node.out_socket::<Float>("OutX");
-
-        let combine = ShaderNodeCombineXyz::new().with_z(result_x);
+        let combine = ShaderNodeCombineXyz::new()
+            .with_x(0.0)
+            .with_y(0.0)
+            .with_z(step.out_socket::<Float>("OutX") * 0.2); // Re
 
         let set_pos = GeometryNodeSetPosition::new()
             .with_geometry(grid.out_mesh())

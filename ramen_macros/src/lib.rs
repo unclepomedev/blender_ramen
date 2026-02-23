@@ -197,14 +197,19 @@ impl Fold for MathFolder {
 
 /// A macro for describing arithmetic expressions for NodeSocket.
 ///
-/// Generates code that builds a Blender `ShaderNodeMath` node tree using standard Rust
-/// arithmetic symbols (`+`, `-`, `*`, `/`) and math functions.
+/// Generates code that builds Blender node trees (e.g., `ShaderNodeMath`, `FunctionNodeCompare`,
+/// `FunctionNodeBooleanMath`) using standard Rust operators and math functions.
 ///
 /// ### Transformation Mechanism
 /// 1. **Automatic Variable Cloning**: Path expressions (variables or constants) in the expression
 ///    are automatically appended with `.clone()`. This allows the same variable to be reused multiple times.
 /// 2. **Function Call Conversion**: Supported function calls are converted into corresponding `ShaderNodeMath` operations.
 /// 3. **Literals**: Numeric literals (e.g., `2.0`) are preserved as is.
+///
+/// ### Supported Operators
+/// - **Arithmetic**: `+`, `-`, `*`, `/`, `%` (Generates `ShaderNodeMath`)
+/// - **Comparison**: `==`, `!=`, `<`, `<=`, `>`, `>=` (Generates `FunctionNodeCompare`)
+/// - **Boolean**: `&&` (or `&`), `||` (or `|`), `^`, and unary `!` (Generates `FunctionNodeBooleanMath`)
 ///
 /// ### Supported Functions
 /// Supports the following functions available in `ShaderNodeMath` for Blender 5.x and later:
@@ -218,6 +223,7 @@ impl Fold for MathFolder {
 /// let a = NodeSocket::<Float>::from(10.0);
 /// let b = NodeSocket::<Float>::from(5.0);
 /// let result = ramen_math!( sin(a + b) * 2.0 );
+/// let condition = ramen_math!(result > 0.0 && b < 0.0);
 /// ```
 ///
 /// ### Limitations
