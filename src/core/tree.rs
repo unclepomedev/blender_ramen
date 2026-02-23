@@ -74,13 +74,9 @@ impl NodeTree {
         self
     }
 
-    fn generate_setup_script(&self) -> String {
-        let mut code = String::new();
-        match self.tree_type {
-            TreeType::Shader => {
-                let _ = write!(
-                    &mut code,
-                    r#"
+    fn setup_shader(&self) -> String {
+        format!(
+            r#"
 # --- Setup Shader: {name} ---
 mat = bpy.data.materials.get('{name}')
 if not mat:
@@ -88,13 +84,13 @@ if not mat:
 tree = mat.node_tree
 tree.nodes.clear()
 "#,
-                    name = self.name
-                );
-            }
-            TreeType::Geometry => {
-                let _ = write!(
-                    &mut code,
-                    r#"
+            name = self.name
+        )
+    }
+
+    fn setup_geometry(&self) -> String {
+        format!(
+            r#"
 # --- Setup GeoNodes: {name} ---
 tree_name = '{name}'
 if tree_name in bpy.data.node_groups:
@@ -116,40 +112,30 @@ tree = group
 
 tree.interface.new_socket('Geometry', in_out='OUTPUT', socket_type='NodeSocketGeometry')
 "#,
-                    name = self.name
-                );
-            }
-            TreeType::GeometryGroup => {
-                let _ = write!(
-                    &mut code,
-                    r#"
-# --- Setup GeoNodes Group: {name} ---
+            name = self.name
+        )
+    }
+
+    fn setup_group(&self, label: &str, tree_type_id: &str) -> String {
+        format!(
+            r#"
+# --- Setup {label}: {name} ---
 tree_name = '{name}'
 if tree_name in bpy.data.node_groups:
     bpy.data.node_groups.remove(bpy.data.node_groups[tree_name])
-tree = bpy.data.node_groups.new(name=tree_name, type='GeometryNodeTree')
+tree = bpy.data.node_groups.new(name=tree_name, type='{tree_type_id}')
 "#,
-                    name = self.name
-                );
-            }
-            TreeType::ShaderGroup => {
-                let _ = write!(
-                    &mut code,
-                    r#"
-# --- Setup Shader Group: {name} ---
-tree_name = '{name}'
-if tree_name in bpy.data.node_groups:
-    bpy.data.node_groups.remove(bpy.data.node_groups[tree_name])
-tree = bpy.data.node_groups.new(name=tree_name, type='ShaderNodeTree')
-"#,
-                    name = self.name
-                );
-            }
-        }
+            label = label,
+            name = self.name,
+            tree_type_id = tree_type_id
+        )
+    }
+
+    fn append_sockets(&self, code: &mut String) {
         for (name, s_type) in &self.inputs {
             let safe_name = python_string_literal(name);
             let _ = writeln!(
-                &mut code,
+                code,
                 "tree.interface.new_socket({}, in_out='INPUT', socket_type='{}')",
                 safe_name, s_type
             );
@@ -157,12 +143,22 @@ tree = bpy.data.node_groups.new(name=tree_name, type='ShaderNodeTree')
         for (name, s_type) in &self.outputs {
             let safe_name = python_string_literal(name);
             let _ = writeln!(
-                &mut code,
+                code,
                 "tree.interface.new_socket({}, in_out='OUTPUT', socket_type='{}')",
                 safe_name, s_type
             );
         }
+    }
 
+    fn generate_setup_script(&self) -> String {
+        let mut code = match self.tree_type {
+            TreeType::Shader => self.setup_shader(),
+            TreeType::Geometry => self.setup_geometry(),
+            TreeType::GeometryGroup => self.setup_group("GeoNodes Group", "GeometryNodeTree"),
+            TreeType::ShaderGroup => self.setup_group("Shader Group", "ShaderNodeTree"),
+        };
+
+        self.append_sockets(&mut code);
         code
     }
 
