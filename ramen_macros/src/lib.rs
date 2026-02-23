@@ -53,54 +53,139 @@ fn get_blender_math_op(name: &str) -> Option<(&'static str, usize)> {
 /// 2. Replaces specific math function calls with code that generates `ShaderNodeMath` nodes.
 struct MathFolder;
 
+impl MathFolder {
+    fn process_path(&mut self, path: &syn::ExprPath, folded: &Expr) -> Option<Expr> {
+        // Do not clone identifiers registered as function names
+        if path.path.segments.len() == 1 {
+            let ident_str = path.path.segments[0].ident.to_string();
+            if get_blender_math_op(&ident_str).is_some() {
+                return Some(folded.clone());
+            }
+        }
+        // Unconditionally append .clone() to other path expressions (variables, constants, etc.)
+        // This avoids ownership issues with NodeSocket.
+        Some(syn::parse_quote!( #path.clone() ))
+    }
+
+    fn process_call(&mut self, call: &syn::ExprCall, folded: &Expr) -> Option<Expr> {
+        // Convert function calls to Blender ShaderNodeMath nodes
+        if let Expr::Path(func_path) = &*call.func {
+            let func_name = match func_path.path.segments.last() {
+                Some(seg) => seg.ident.to_string(),
+                None => return Some(folded.clone()),
+            };
+
+            let (blender_op, expected_args) = get_blender_math_op(&func_name)?;
+
+            if call.args.len() != expected_args {
+                let msg = format!(
+                    "ramen_math!: function '{}' expects {} argument(s), but got {}",
+                    func_name,
+                    expected_args,
+                    call.args.len()
+                );
+                return Some(syn::parse_quote! { compile_error!(#msg) });
+            }
+
+            let input_setters = call.args.iter().enumerate().map(|(i, arg)| {
+                quote! { .set_input(#i, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Float>::from(#arg)) }
+            });
+
+            return Some(syn::parse_quote! {
+                blender_ramen::core::nodes::ShaderNodeMath::new()
+                    .with_operation(#blender_op)
+                    #(#input_setters)*
+                    .out_value()
+            });
+        }
+        None
+    }
+
+    fn process_unary(&mut self, un: &syn::ExprUnary) -> Option<Expr> {
+        if let syn::UnOp::Not(_) = un.op {
+            let inner = &un.expr;
+            return Some(syn::parse_quote! {
+                blender_ramen::core::nodes::FunctionNodeBooleanMath::new()
+                    .with_operation("NOT")
+                    .set_input(0, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Bool>::from(#inner))
+                    .out_boolean()
+            });
+        }
+        None
+    }
+
+    fn process_binary(&mut self, bin: &syn::ExprBinary) -> Option<Expr> {
+        let cmp_op = match bin.op {
+            syn::BinOp::Eq(_) => Some("EQUAL"),
+            syn::BinOp::Ne(_) => Some("NOT_EQUAL"),
+            syn::BinOp::Lt(_) => Some("LESS_THAN"),
+            syn::BinOp::Le(_) => Some("LESS_EQUAL"),
+            syn::BinOp::Gt(_) => Some("GREATER_THAN"),
+            syn::BinOp::Ge(_) => Some("GREATER_EQUAL"),
+            _ => None,
+        };
+
+        if let Some(blender_op) = cmp_op {
+            let left = &bin.left;
+            let right = &bin.right;
+
+            return Some(syn::parse_quote! {
+                blender_ramen::core::nodes::FunctionNodeCompare::new()
+                    .with_data_type("FLOAT")
+                    .with_operation(#blender_op)
+                    .set_input(0, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Float>::from(#left))
+                    .set_input(1, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Float>::from(#right))
+                    .out_result()
+            });
+        }
+
+        let bool_op = match bin.op {
+            syn::BinOp::And(_) | syn::BinOp::BitAnd(_) => Some("AND"),
+            syn::BinOp::Or(_) | syn::BinOp::BitOr(_) => Some("OR"),
+            syn::BinOp::BitXor(_) => Some("XOR"),
+            _ => None,
+        };
+
+        if let Some(blender_op) = bool_op {
+            let left = &bin.left;
+            let right = &bin.right;
+
+            return Some(syn::parse_quote! {
+                blender_ramen::core::nodes::FunctionNodeBooleanMath::new()
+                    .with_operation(#blender_op)
+                    .set_input(0, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Bool>::from(#left))
+                    .set_input(1, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Bool>::from(#right))
+                    .out_boolean()
+            });
+        }
+
+        None
+    }
+}
+
 impl Fold for MathFolder {
     fn fold_expr(&mut self, expr: Expr) -> Expr {
         let folded = syn::fold::fold_expr(self, expr);
 
         match &folded {
             Expr::Path(path) => {
-                // Do not clone identifiers registered as function names
-                if path.path.segments.len() == 1 {
-                    let ident_str = path.path.segments[0].ident.to_string();
-                    if get_blender_math_op(&ident_str).is_some() {
-                        return folded;
-                    }
+                if let Some(expr) = self.process_path(path, &folded) {
+                    return expr;
                 }
-                // Unconditionally append .clone() to other path expressions (variables, constants, etc.)
-                // This avoids ownership issues with NodeSocket.
-                return syn::parse_quote!( #path.clone() );
             }
-
             Expr::Call(call) => {
-                // Convert function calls to Blender ShaderNodeMath nodes
-                if let Expr::Path(func_path) = &*call.func {
-                    let func_name = match func_path.path.segments.last() {
-                        Some(seg) => seg.ident.to_string(),
-                        None => return folded,
-                    };
-
-                    if let Some((blender_op, expected_args)) = get_blender_math_op(&func_name) {
-                        if call.args.len() != expected_args {
-                            let msg = format!(
-                                "ramen_math!: function '{}' expects {} argument(s), but got {}",
-                                func_name,
-                                expected_args,
-                                call.args.len()
-                            );
-                            return syn::parse_quote! { compile_error!(#msg) };
-                        }
-
-                        let input_setters = call.args.iter().enumerate().map(|(i, arg)| {
-                            quote! { .set_input(#i, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Float>::from(#arg)) }
-                        });
-
-                        return syn::parse_quote! {
-                            blender_ramen::core::nodes::ShaderNodeMath::new()
-                                .with_operation(#blender_op)
-                                #(#input_setters)*
-                                .out_value()
-                        };
-                    }
+                if let Some(expr) = self.process_call(call, &folded) {
+                    return expr;
+                }
+            }
+            Expr::Unary(un) => {
+                if let Some(expr) = self.process_unary(un) {
+                    return expr;
+                }
+            }
+            Expr::Binary(bin) => {
+                if let Some(expr) = self.process_binary(bin) {
+                    return expr;
                 }
             }
             _ => {}

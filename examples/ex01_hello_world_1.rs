@@ -30,6 +30,11 @@ fn main() {
     // ==========================================
     let geo_script = NodeTree::new_geometry(GEO_NAME).build(|| {
         let result = ramen_math!(sin(10.0 + 5.0) * 2.0 / 0.5);
+
+        // Add simple math processing using Unary and Binary operations
+        #[allow(unused_parens)]
+        let _cond = ramen_math!(!(result > 1.0) && (result == 0.0));
+
         let grid = GeometryNodeMeshGrid::new()
             .with_size_x(result)
             .with_vertices_x(10);
