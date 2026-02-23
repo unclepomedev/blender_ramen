@@ -3,7 +3,7 @@ use blender_ramen::core::nodes::{
     GeometryNodeMeshGrid, GeometryNodeSetMaterial, GeometryNodeStoreNamedAttribute,
     NodeGroupOutput, ShaderNodeAttribute, ShaderNodeEmission, ShaderNodeOutputMaterial,
 };
-use blender_ramen::core::tree::{generate_script_header, NodeTree};
+use blender_ramen::core::tree::{NodeTree, generate_script_header};
 use blender_ramen::core::types::{AttrDomain, AttrType, Vector};
 use ramen_macros::ramen_math;
 
@@ -36,7 +36,7 @@ fn main() {
         let store_attr = GeometryNodeStoreNamedAttribute::new()
             .with_geometry(grid.out_mesh())
             .with_name(SHARED_UV_ATTR)
-            .with_data_type(AttrType::VECTOR)
+            .with_data_type(AttrType::FLOAT_VECTOR)
             .with_domain(AttrDomain::POINT)
             .set_input(
                 GeometryNodeStoreNamedAttribute::PIN_VALUE,

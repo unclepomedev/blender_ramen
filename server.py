@@ -81,7 +81,7 @@ class LiveLinkServer:
                 return None
             try:
                 # Note: Arbitrary code execution from localhost is by design. This tool assumes a trusted local development environment.
-                exec(script, globals())
+                exec(script, {"bpy": bpy, "__builtins__": __builtins__})
                 res_q.put(b"OK")
             except Exception:
                 res_q.put(f"ERROR\n{traceback.format_exc()}".encode("utf-8"))
