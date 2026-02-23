@@ -91,7 +91,7 @@ impl Fold for MathFolder {
                         }
 
                         let input_setters = call.args.iter().enumerate().map(|(i, arg)| {
-                            quote! { .set_input(#i, #arg) }
+                            quote! { .set_input(#i, crate::core::types::NodeSocket::<crate::core::types::Float>::from(#arg)) }
                         });
 
                         return syn::parse_quote! {
