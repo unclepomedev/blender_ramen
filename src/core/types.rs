@@ -151,6 +151,26 @@ pub trait SocketDef {
     fn default_name() -> &'static str;
 }
 
+pub trait NodeGroupInputExt {
+    fn socket<T>(&self, name: &str) -> NodeSocket<T>;
+}
+
+impl NodeGroupInputExt for crate::core::nodes::NodeGroupInput {
+    fn socket<T>(&self, name: &str) -> NodeSocket<T> {
+        NodeSocket::new_expr(format!("{}.outputs['{}']", self.name, name))
+    }
+}
+
+pub trait GeometryNodeGroupExt {
+    fn out_socket<T>(&self, name: &str) -> NodeSocket<T>;
+}
+
+impl GeometryNodeGroupExt for crate::core::nodes::GeometryNodeGroup {
+    fn out_socket<T>(&self, name: &str) -> NodeSocket<T> {
+        NodeSocket::new_expr(format!("{}.outputs['{}']", self.name, name))
+    }
+}
+
 macro_rules! impl_socket_def {
     ($type:ident, $sock_type:expr, $def_name:expr) => {
         impl SocketDef for $type {
