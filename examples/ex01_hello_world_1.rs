@@ -1,7 +1,8 @@
 use blender_ramen::core::live_link::send_to_blender;
 use blender_ramen::core::nodes::{
-    GeometryNodeMeshGrid, GeometryNodeSetMaterial, GeometryNodeStoreNamedAttribute,
-    NodeGroupOutput, ShaderNodeAttribute, ShaderNodeEmission, ShaderNodeOutputMaterial,
+    GeometryNodeDeleteGeometry, GeometryNodeInputPosition, GeometryNodeMeshGrid,
+    GeometryNodeSetMaterial, GeometryNodeStoreNamedAttribute, NodeGroupOutput, ShaderNodeAttribute,
+    ShaderNodeEmission, ShaderNodeOutputMaterial, ShaderNodeSeparateXyz,
 };
 use blender_ramen::core::tree::{NodeTree, generate_script_header};
 use blender_ramen::core::types::{AttrDomain, AttrType, Vector};
@@ -29,18 +30,25 @@ fn main() {
     // 2. Geometry Node Tree
     // ==========================================
     let geo_script = NodeTree::new_geometry(GEO_NAME).build(|| {
-        let result = ramen_math!(sin(10.0 + 5.0) * 2.0 / 0.5);
-
-        // Add simple math processing using Unary and Binary operations
-        #[allow(unused_parens)]
-        let _cond = ramen_math!(!(result > 1.0) && (result == 0.0));
-
         let grid = GeometryNodeMeshGrid::new()
-            .with_size_x(result)
-            .with_vertices_x(10);
+            .with_size_x(5.0)
+            .with_size_y(5.0)
+            .with_vertices_x(20)
+            .with_vertices_y(20);
+
+        let pos = GeometryNodeInputPosition::new().out_position();
+        let sep_pos = ShaderNodeSeparateXyz::new().with_vector(pos);
+        let x = sep_pos.out_x();
+        let y = sep_pos.out_y();
+
+        let cond = ramen_math!(x > 0.0 && y < 0.0);
+
+        let delete = GeometryNodeDeleteGeometry::new()
+            .with_geometry(grid.out_mesh())
+            .with_selection(cond);
 
         let store_attr = GeometryNodeStoreNamedAttribute::new()
-            .with_geometry(grid.out_mesh())
+            .with_geometry(delete.out_geometry())
             .with_name(SHARED_UV_ATTR)
             .with_data_type(AttrType::FLOAT_VECTOR)
             .with_domain(AttrDomain::POINT)
