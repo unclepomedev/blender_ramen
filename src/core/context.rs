@@ -43,7 +43,7 @@ impl NodeData {
         }
 
         for (idx, expr) in &self.inputs {
-            if !expr.contains(".outputs[") {
+            if !expr.contains(".outputs[") {  // TODO: (HACK) Replace with literal flag. This can be achieved by extending NodeData.inputs to a HashMap<usize, (String, bool)> or a struct.
                 let _ = writeln!(
                     &mut code,
                     "{}.inputs[{}].default_value = {}",

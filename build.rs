@@ -212,7 +212,7 @@ fn generate_outputs(
         let method_getter = format_ident!("{}", getter_name);
         getters.push(quote! {
             pub fn #method_getter(&self) -> crate::core::types::NodeSocket<#rust_type> {
-                crate::core::types::NodeSocket::new_expr(
+                crate::core::types::NodeSocket::new_output(
                     format!("{}.outputs[{}]", self.name, crate::core::types::python_string_literal(#socket_name))
                 )
             }

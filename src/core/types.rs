@@ -47,6 +47,9 @@ pub fn fmt_f32(v: f32) -> String {
 #[derive(Debug, PartialEq, Eq)]
 pub struct NodeSocket<T> {
     pub python_expr: String,
+    // true if this socket represents a literal value (e.g., 0.5, "abc"),
+    // false if it represents a node output expression (e.g., node.outputs[0])
+    pub is_literal: bool,
     pub _marker: std::marker::PhantomData<T>,
 }
 
@@ -54,15 +57,25 @@ impl<T> Clone for NodeSocket<T> {
     fn clone(&self) -> Self {
         Self {
             python_expr: self.python_expr.clone(),
+            is_literal: self.is_literal,
             _marker: std::marker::PhantomData,
         }
     }
 }
 
 impl<T> NodeSocket<T> {
-    pub fn new_expr(expr: impl Into<String>) -> Self {
+    pub fn new_literal(expr: impl Into<String>) -> Self {
         Self {
             python_expr: expr.into(),
+            is_literal: true,
+            _marker: std::marker::PhantomData,
+        }
+    }
+
+    pub fn new_output(expr: impl Into<String>) -> Self {
+        Self {
+            python_expr: expr.into(),
+            is_literal: false,
             _marker: std::marker::PhantomData,
         }
     }
@@ -70,6 +83,7 @@ impl<T> NodeSocket<T> {
     pub fn cast<U>(self) -> NodeSocket<U> {
         NodeSocket {
             python_expr: self.python_expr,
+            is_literal: self.is_literal,
             _marker: std::marker::PhantomData,
         }
     }
@@ -77,7 +91,7 @@ impl<T> NodeSocket<T> {
 
 impl From<f32> for NodeSocket<Float> {
     fn from(v: f32) -> Self {
-        Self::new_expr(fmt_f32(v))
+        Self::new_literal(fmt_f32(v))
     }
 }
 
@@ -86,7 +100,7 @@ macro_rules! impl_from_int_for_float_socket {
         $(
             impl From<$t> for NodeSocket<Float> {
                 fn from(v: $t) -> Self {
-                    Self::new_expr(fmt_f32(v as f32))
+                    Self::new_literal(fmt_f32(v as f32))
                 }
             }
         )*
@@ -99,7 +113,7 @@ macro_rules! impl_from_int_for_int_socket {
         $(
             impl From<$t> for NodeSocket<Int> {
                 fn from(v: $t) -> Self {
-                    Self::new_expr(v.to_string())
+                    Self::new_literal(v.to_string())
                 }
             }
         )*
@@ -108,25 +122,25 @@ macro_rules! impl_from_int_for_int_socket {
 impl_from_int_for_int_socket!(i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
 impl From<bool> for NodeSocket<Bool> {
     fn from(v: bool) -> Self {
-        Self::new_expr(if v { "True" } else { "False" })
+        Self::new_literal(if v { "True" } else { "False" })
     }
 }
 
 impl From<&str> for NodeSocket<StringType> {
     fn from(s: &str) -> Self {
-        Self::new_expr(python_string_literal(s))
+        Self::new_literal(python_string_literal(s))
     }
 }
 
 impl From<String> for NodeSocket<StringType> {
     fn from(s: String) -> Self {
-        Self::new_expr(python_string_literal(&s))
+        Self::new_literal(python_string_literal(&s))
     }
 }
 
 impl From<(f32, f32, f32)> for NodeSocket<Vector> {
     fn from(v: (f32, f32, f32)) -> Self {
-        Self::new_expr(format!(
+        Self::new_literal(format!(
             "({}, {}, {})",
             fmt_f32(v.0),
             fmt_f32(v.1),
@@ -137,7 +151,7 @@ impl From<(f32, f32, f32)> for NodeSocket<Vector> {
 
 impl From<(f32, f32, f32, f32)> for NodeSocket<Color> {
     fn from(c: (f32, f32, f32, f32)) -> Self {
-        Self::new_expr(format!(
+        Self::new_literal(format!(
             "({}, {}, {}, {})",
             fmt_f32(c.0),
             fmt_f32(c.1),
@@ -167,7 +181,7 @@ impl<T> From<&NodeSocket<T>> for NodeSocket<T> {
 
 impl From<&str> for NodeSocket<Material> {
     fn from(mat_name: &str) -> Self {
-        Self::new_expr(format!(
+        Self::new_literal(format!(
             "bpy.data.materials[{}]",
             python_string_literal(mat_name)
         ))
@@ -192,7 +206,7 @@ pub trait NodeGroupInputExt {
 
 impl NodeGroupInputExt for crate::core::nodes::NodeGroupInput {
     fn socket<T>(&self, name: &str) -> NodeSocket<T> {
-        NodeSocket::new_expr(format!(
+        NodeSocket::new_output(format!(
             "{}.outputs[{}]",
             self.name,
             python_string_literal(name)
@@ -206,7 +220,7 @@ pub trait GeometryNodeGroupExt {
 
 impl GeometryNodeGroupExt for crate::core::nodes::GeometryNodeGroup {
     fn out_socket<T>(&self, name: &str) -> NodeSocket<T> {
-        NodeSocket::new_expr(format!(
+        NodeSocket::new_output(format!(
             "{}.outputs[{}]",
             self.name,
             python_string_literal(name)
@@ -220,7 +234,7 @@ pub trait ShaderNodeGroupExt {
 
 impl ShaderNodeGroupExt for crate::core::nodes::ShaderNodeGroup {
     fn out_socket<T>(&self, name: &str) -> NodeSocket<T> {
-        NodeSocket::new_expr(format!(
+        NodeSocket::new_output(format!(
             "{}.outputs[{}]",
             self.name,
             python_string_literal(name)
@@ -359,7 +373,7 @@ mod tests {
 
     #[test]
     fn test_socket_casting() {
-        let vec = NodeSocket::<Vector>::new_expr("some_node.outputs[0]");
+        let vec = NodeSocket::<Vector>::new_output("some_node.outputs[0]");
         let color: NodeSocket<Color> = vec.into();
         assert_eq!(color.python_expr, "some_node.outputs[0]");
 
