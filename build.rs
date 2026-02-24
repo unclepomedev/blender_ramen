@@ -223,6 +223,68 @@ fn generate_outputs(
     (defaults, getters)
 }
 
+fn generate_enum_property(
+    node_id: &str,
+    prop: &NodeProperty,
+    items: &[EnumItem],
+    method_name: &syn::Ident,
+) -> (TokenStream, TokenStream) {
+    let enum_name_str = format!(
+        "{}{}",
+        node_id.to_pascal_case(),
+        prop.identifier.to_pascal_case()
+    );
+    let enum_ident = format_ident!("{}", enum_name_str);
+
+    let mut variants = Vec::new();
+    let mut match_arms = Vec::new();
+
+    let mut enum_sanitizer = NameSanitizer::new();
+
+    for (item_i, item) in items.iter().enumerate() {
+        let safe_variant_str = enum_sanitizer
+            .sanitize_and_register(&item.identifier, item_i, "")
+            .trim_start_matches('_')
+            .to_pascal_case();
+        let safe_variant_str = if safe_variant_str.is_empty()
+            || safe_variant_str.chars().next().unwrap().is_numeric()
+        {
+            format!("Variant{}", safe_variant_str)
+        } else {
+            safe_variant_str
+        };
+        let variant_ident = format_ident!("{}", safe_variant_str);
+        let item_id = &item.identifier;
+
+        variants.push(quote! { #variant_ident });
+        match_arms.push(quote! { Self::#variant_ident => #item_id });
+    }
+
+    let enum_def = quote! {
+        #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+        pub enum #enum_ident {
+            #(#variants),*
+        }
+        impl #enum_ident {
+            pub fn as_str(&self) -> &'static str {
+                match self {
+                    #(#match_arms),*
+                }
+            }
+        }
+    };
+
+    let prop_id = &prop.identifier;
+    let method_def = quote! {
+        pub fn #method_name(self, val: #enum_ident) -> Self {
+            crate::core::context::update_property(&self.name, #prop_id, crate::core::types::python_string_literal(val.as_str()));
+            self
+        }
+    };
+
+    (method_def, enum_def)
+}
+
 fn generate_properties(
     node_id: &str,
     def: &NodeDef,
@@ -243,48 +305,9 @@ fn generate_properties(
             "ENUM" => {
                 if let Some(items) = &prop.enum_items
                     && !items.is_empty() {
-                        let enum_name_str = format!("{}{}", node_id.to_pascal_case(), prop.identifier.to_pascal_case());
-                        let enum_ident = format_ident!("{}", enum_name_str);
-
-                        let mut variants = Vec::new();
-                        let mut match_arms = Vec::new();
-
-                        let mut enum_sanitizer = NameSanitizer::new();
-
-                        for (item_i, item) in items.iter().enumerate() {
-                            let safe_variant_str = enum_sanitizer.sanitize_and_register(&item.identifier, item_i, "").trim_start_matches('_').to_pascal_case();
-                            let safe_variant_str = if safe_variant_str.is_empty() || safe_variant_str.chars().next().unwrap().is_numeric() {
-                                format!("Variant{}", safe_variant_str)
-                            } else {
-                                safe_variant_str
-                            };
-                            let variant_ident = format_ident!("{}", safe_variant_str);
-                            let item_id = &item.identifier;
-
-                            variants.push(quote! { #variant_ident });
-                            match_arms.push(quote! { Self::#variant_ident => #item_id });
-                        }
-
-                        enums.push(quote! {
-                            #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-                            pub enum #enum_ident {
-                                #(#variants),*
-                            }
-                            impl #enum_ident {
-                                pub fn as_str(&self) -> &'static str {
-                                    match self {
-                                        #(#match_arms),*
-                                    }
-                                }
-                            }
-                        });
-
-                        methods.push(quote! {
-                            pub fn #method_name(self, val: #enum_ident) -> Self {
-                                crate::core::context::update_property(&self.name, #prop_id, crate::core::types::python_string_literal(val.as_str()));
-                                self
-                            }
-                        });
+                        let (method, enum_def) = generate_enum_property(node_id, prop, items, &method_name);
+                        enums.push(enum_def);
+                        methods.push(method);
                         continue;
                     }
                 methods.push(quote! { pub fn #method_name(self, val: &str) -> Self { crate::core::context::update_property(&self.name, #prop_id, crate::core::types::python_string_literal(val)); self } })
