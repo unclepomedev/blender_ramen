@@ -81,12 +81,31 @@ impl From<f32> for NodeSocket<Float> {
     }
 }
 
-impl From<i32> for NodeSocket<Int> {
-    fn from(v: i32) -> Self {
-        Self::new_expr(v.to_string())
-    }
+macro_rules! impl_from_int_for_float_socket {
+    ($($t:ty),*) => {
+        $(
+            impl From<$t> for NodeSocket<Float> {
+                fn from(v: $t) -> Self {
+                    Self::new_expr(fmt_f32(v as f32))
+                }
+            }
+        )*
+    };
 }
+impl_from_int_for_float_socket!(i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
 
+macro_rules! impl_from_int_for_int_socket {
+    ($($t:ty),*) => {
+        $(
+            impl From<$t> for NodeSocket<Int> {
+                fn from(v: $t) -> Self {
+                    Self::new_expr(v.to_string())
+                }
+            }
+        )*
+    };
+}
+impl_from_int_for_int_socket!(i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
 impl From<bool> for NodeSocket<Bool> {
     fn from(v: bool) -> Self {
         Self::new_expr(if v { "True" } else { "False" })
@@ -309,6 +328,15 @@ mod tests {
         assert_eq!(NodeSocket::<Int>::from(42).python_expr, "42");
         assert_eq!(NodeSocket::<Bool>::from(true).python_expr, "True");
         assert_eq!(NodeSocket::<Bool>::from(false).python_expr, "False");
+    }
+
+    #[test]
+    fn test_extended_numeric_conversions() {
+        assert_eq!(NodeSocket::<Float>::from(42_i32).python_expr, "42.0000");
+        assert_eq!(NodeSocket::<Float>::from(100_usize).python_expr, "100.0000");
+
+        assert_eq!(NodeSocket::<Int>::from(42_i32).python_expr, "42");
+        assert_eq!(NodeSocket::<Int>::from(100_usize).python_expr, "100");
     }
 
     #[test]
