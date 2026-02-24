@@ -3,11 +3,17 @@ use std::fmt::Write;
 use std::sync::{LazyLock, Mutex};
 
 #[derive(Clone, Debug)]
+pub struct InputValue {
+    pub expr: String,
+    pub is_literal: bool,
+}
+
+#[derive(Clone, Debug)]
 pub struct NodeData {
     pub name: String,
     pub bl_idname: String,
     pub properties: HashMap<String, String>,
-    pub inputs: HashMap<usize, (String, bool)>,
+    pub inputs: HashMap<usize, InputValue>,
     pub output_defaults: HashMap<usize, String>,
     pub post_creation_script: String,
     pub custom_links_script: String,
@@ -42,7 +48,7 @@ impl NodeData {
             let _ = writeln!(&mut code, "{}.{} = {}", self.name, k, v);
         }
 
-        for (idx, (expr, is_literal)) in &self.inputs {
+        for (idx, InputValue { expr, is_literal }) in &self.inputs {
             if *is_literal {
                 let _ = writeln!(
                     &mut code,
@@ -70,7 +76,7 @@ impl NodeData {
         }
 
         let mut code = String::new();
-        for (idx, (expr, is_literal)) in &self.inputs {
+        for (idx, InputValue { expr, is_literal }) in &self.inputs {
             if !*is_literal {
                 let _ = writeln!(
                     &mut code,
@@ -117,7 +123,13 @@ impl BuildContext {
 
     pub fn update_input(&mut self, name: &str, index: usize, val: String, is_literal: bool) {
         if let Some(node) = self.nodes.get_mut(name) {
-            node.inputs.insert(index, (val, is_literal));
+            node.inputs.insert(
+                index,
+                InputValue {
+                    expr: val,
+                    is_literal,
+                },
+            );
         }
     }
 
@@ -249,9 +261,20 @@ mod tests {
 
         node.properties
             .insert("operation".to_string(), "'ADD'".to_string());
-        node.inputs.insert(0, ("1.5".to_string(), true));
-        node.inputs
-            .insert(1, ("other_node.outputs['Value']".to_string(), false));
+        node.inputs.insert(
+            0,
+            InputValue {
+                expr: "1.5".to_string(),
+                is_literal: true,
+            },
+        );
+        node.inputs.insert(
+            1,
+            InputValue {
+                expr: "other_node.outputs['Value']".to_string(),
+                is_literal: false,
+            },
+        );
         node.output_defaults.insert(0, "0.0".to_string());
 
         let script = node.creation_script();
@@ -267,9 +290,20 @@ mod tests {
     fn test_node_data_links_script() {
         let mut node = NodeData::new("math_1".to_string(), "ShaderNodeMath".to_string());
 
-        node.inputs.insert(0, ("1.5".to_string(), true));
-        node.inputs
-            .insert(1, ("other_node.outputs['Value']".to_string(), false));
+        node.inputs.insert(
+            0,
+            InputValue {
+                expr: "1.5".to_string(),
+                is_literal: true,
+            },
+        );
+        node.inputs.insert(
+            1,
+            InputValue {
+                expr: "other_node.outputs['Value']".to_string(),
+                is_literal: false,
+            },
+        );
 
         let script = node.links_script();
 
@@ -292,7 +326,7 @@ mod tests {
 
         let extracted_node = &root_nodes[0];
         assert_eq!(extracted_node.properties.get("prop1").unwrap(), "100");
-        assert_eq!(extracted_node.inputs.get(&2).unwrap().0, "200");
+        assert_eq!(extracted_node.inputs.get(&2).unwrap().expr, "200");
     }
 
     #[test]
