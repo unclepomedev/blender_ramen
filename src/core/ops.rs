@@ -228,12 +228,12 @@ mod tests {
             nodes[0].properties.get("operation").unwrap(),
             "\"SUBTRACT\""
         );
-        assert_eq!(nodes[0].inputs.get(&0).unwrap(), &a.python_expr);
-        assert_eq!(nodes[0].inputs.get(&1).unwrap(), "2.0000");
+        assert_eq!(nodes[0].inputs.get(&0).unwrap().0, a.python_expr);
+        assert_eq!(nodes[0].inputs.get(&1).unwrap().0, "2.0000");
 
         assert_eq!(nodes[1].properties.get("operation").unwrap(), "\"DIVIDE\"");
-        assert_eq!(nodes[1].inputs.get(&0).unwrap(), "100.0000");
-        assert_eq!(nodes[1].inputs.get(&1).unwrap(), &a.python_expr);
+        assert_eq!(nodes[1].inputs.get(&0).unwrap().0, "100.0000");
+        assert_eq!(nodes[1].inputs.get(&1).unwrap().0, a.python_expr);
     }
 
     #[test]
@@ -285,11 +285,11 @@ mod tests {
             nodes[0].properties.get("operation").unwrap(),
             "\"MULTIPLY\""
         );
-        assert_eq!(nodes[0].inputs.get(&1).unwrap(), "(5.0000, 5.0000, 5.0000)");
+        assert_eq!(nodes[0].inputs.get(&1).unwrap().0, "(5.0000, 5.0000, 5.0000)");
 
         assert_eq!(nodes[1].properties.get("operation").unwrap(), "\"DIVIDE\"");
         assert_eq!(
-            nodes[1].inputs.get(&0).unwrap(),
+            nodes[1].inputs.get(&0).unwrap().0,
             "(10.0000, 10.0000, 10.0000)"
         );
     }

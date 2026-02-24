@@ -7,7 +7,7 @@ pub struct NodeData {
     pub name: String,
     pub bl_idname: String,
     pub properties: HashMap<String, String>,
-    pub inputs: HashMap<usize, String>,
+    pub inputs: HashMap<usize, (String, bool)>,
     pub output_defaults: HashMap<usize, String>,
     pub post_creation_script: String,
     pub custom_links_script: String,
@@ -42,8 +42,8 @@ impl NodeData {
             let _ = writeln!(&mut code, "{}.{} = {}", self.name, k, v);
         }
 
-        for (idx, expr) in &self.inputs {
-            if !expr.contains(".outputs[") {  // TODO: (HACK) Replace with literal flag. This can be achieved by extending NodeData.inputs to a HashMap<usize, (String, bool)> or a struct.
+        for (idx, (expr, is_literal)) in &self.inputs {
+            if *is_literal {
                 let _ = writeln!(
                     &mut code,
                     "{}.inputs[{}].default_value = {}",
@@ -70,8 +70,8 @@ impl NodeData {
         }
 
         let mut code = String::new();
-        for (idx, expr) in &self.inputs {
-            if expr.contains(".outputs[") {
+        for (idx, (expr, is_literal)) in &self.inputs {
+            if !*is_literal {
                 let _ = writeln!(
                     &mut code,
                     "tree.links.new({}, {}.inputs[{}])",
@@ -115,9 +115,9 @@ impl BuildContext {
         }
     }
 
-    pub fn update_input(&mut self, name: &str, index: usize, val: String) {
+    pub fn update_input(&mut self, name: &str, index: usize, val: String, is_literal: bool) {
         if let Some(node) = self.nodes.get_mut(name) {
-            node.inputs.insert(index, val);
+            node.inputs.insert(index, (val, is_literal));
         }
     }
 
@@ -194,11 +194,11 @@ pub fn update_property(name: &str, key: &str, val: String) {
         .unwrap()
         .update_property(name, key, val);
 }
-pub fn update_input(name: &str, index: usize, val: String) {
+pub fn update_input(name: &str, index: usize, val: String, is_literal: bool) {
     GLOBAL_CONTEXT
         .lock()
         .unwrap()
-        .update_input(name, index, val);
+        .update_input(name, index, val, is_literal);
 }
 pub fn update_output_default(name: &str, index: usize, val: String) {
     GLOBAL_CONTEXT
@@ -249,9 +249,9 @@ mod tests {
 
         node.properties
             .insert("operation".to_string(), "'ADD'".to_string());
-        node.inputs.insert(0, "1.5".to_string());
+        node.inputs.insert(0, ("1.5".to_string(), true));
         node.inputs
-            .insert(1, "other_node.outputs['Value']".to_string());
+            .insert(1, ("other_node.outputs['Value']".to_string(), false));
         node.output_defaults.insert(0, "0.0".to_string());
 
         let script = node.creation_script();
@@ -267,9 +267,9 @@ mod tests {
     fn test_node_data_links_script() {
         let mut node = NodeData::new("math_1".to_string(), "ShaderNodeMath".to_string());
 
-        node.inputs.insert(0, "1.5".to_string());
+        node.inputs.insert(0, ("1.5".to_string(), true));
         node.inputs
-            .insert(1, "other_node.outputs['Value']".to_string());
+            .insert(1, ("other_node.outputs['Value']".to_string(), false));
 
         let script = node.links_script();
 
@@ -285,14 +285,14 @@ mod tests {
         ctx.add_node(node);
 
         ctx.update_property("test_node", "prop1", "100".to_string());
-        ctx.update_input("test_node", 2, "200".to_string());
+        ctx.update_input("test_node", 2, "200".to_string(), true);
 
         let root_nodes = ctx.take_root();
         assert_eq!(root_nodes.len(), 1);
 
         let extracted_node = &root_nodes[0];
         assert_eq!(extracted_node.properties.get("prop1").unwrap(), "100");
-        assert_eq!(extracted_node.inputs.get(&2).unwrap(), "200");
+        assert_eq!(extracted_node.inputs.get(&2).unwrap().0, "200");
     }
 
     #[test]
