@@ -292,36 +292,6 @@ impl_into_any!(
     Geo, Float, Int, Vector, Color, StringType, Bool, Material, Object, Collection, Image, Texture
 );
 
-// TODO: auto-generate AttrDomain/AttrType
-pub struct AttrDomain;
-impl AttrDomain {
-    pub const POINT: &'static str = "POINT";
-    pub const EDGE: &'static str = "EDGE";
-    pub const FACE: &'static str = "FACE";
-    pub const CORNER: &'static str = "CORNER";
-    /// SPLINE
-    pub const CURVE: &'static str = "CURVE";
-    pub const INSTANCE: &'static str = "INSTANCE";
-    pub const LAYER: &'static str = "LAYER";
-}
-
-pub struct AttrType;
-impl AttrType {
-    pub const FLOAT: &'static str = "FLOAT";
-    pub const INT: &'static str = "INT";
-    pub const BOOLEAN: &'static str = "BOOLEAN";
-    pub const FLOAT_VECTOR: &'static str = "FLOAT_VECTOR";
-    pub const FLOAT_COLOR: &'static str = "FLOAT_COLOR";
-    pub const QUATERNION: &'static str = "QUATERNION";
-    pub const FLOAT4X4: &'static str = "FLOAT4X4";
-    pub const STRING: &'static str = "STRING";
-    pub const INT8: &'static str = "INT8";
-    pub const INT16_2D: &'static str = "INT16_2D";
-    pub const INT32_2D: &'static str = "INT32_2D";
-    pub const FLOAT2: &'static str = "FLOAT2";
-    pub const BYTE_COLOR: &'static str = "BYTE_COLOR";
-}
-
 // ---------------------------------------------------------
 // unittest
 // ---------------------------------------------------------

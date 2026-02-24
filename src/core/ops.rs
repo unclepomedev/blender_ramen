@@ -9,17 +9,19 @@
 //!
 //! To eliminate this vulnerability, our core operational logic adopts a robust design that explicitly targets pins by their physical, immutable indices using `.set_input(0, ...)`.
 
-use crate::core::nodes::{ShaderNodeMath, ShaderNodeVectorMath};
+use crate::core::nodes::{
+    ShaderNodeMath, ShaderNodeMathOperation, ShaderNodeVectorMath, ShaderNodeVectorMathOperation,
+};
 use crate::core::types::{Float, NodeSocket, Vector};
 
 macro_rules! impl_node_op {
-    ($Trait:ident, $method:ident, $Node:ident, $op_str:expr, $out:ident, $Type:ident) => {
+    ($Trait:ident, $method:ident, $Node:ident, $op_enum:expr, $out:ident, $Type:ident) => {
         // 1. &A + &B
         impl std::ops::$Trait<&NodeSocket<$Type>> for &NodeSocket<$Type> {
             type Output = NodeSocket<$Type>;
             fn $method(self, rhs: &NodeSocket<$Type>) -> Self::Output {
                 $Node::new()
-                    .with_operation($op_str)
+                    .with_operation($op_enum)
                     .set_input(0, self.clone())
                     .set_input(1, rhs.clone())
                     .$out()
@@ -50,18 +52,53 @@ macro_rules! impl_node_op {
 }
 
 // Float (ShaderNodeMath)
-impl_node_op!(Add, add, ShaderNodeMath, "ADD", out_value, Float);
-impl_node_op!(Sub, sub, ShaderNodeMath, "SUBTRACT", out_value, Float);
-impl_node_op!(Mul, mul, ShaderNodeMath, "MULTIPLY", out_value, Float);
-impl_node_op!(Div, div, ShaderNodeMath, "DIVIDE", out_value, Float);
+impl_node_op!(
+    Add,
+    add,
+    ShaderNodeMath,
+    ShaderNodeMathOperation::Add,
+    out_value,
+    Float
+);
+impl_node_op!(
+    Sub,
+    sub,
+    ShaderNodeMath,
+    ShaderNodeMathOperation::Subtract,
+    out_value,
+    Float
+);
+impl_node_op!(
+    Mul,
+    mul,
+    ShaderNodeMath,
+    ShaderNodeMathOperation::Multiply,
+    out_value,
+    Float
+);
+impl_node_op!(
+    Div,
+    div,
+    ShaderNodeMath,
+    ShaderNodeMathOperation::Divide,
+    out_value,
+    Float
+);
 
 // Vector (ShaderNodeVectorMath)
-impl_node_op!(Add, add, ShaderNodeVectorMath, "ADD", out_vector, Vector);
+impl_node_op!(
+    Add,
+    add,
+    ShaderNodeVectorMath,
+    ShaderNodeVectorMathOperation::Add,
+    out_vector,
+    Vector
+);
 impl_node_op!(
     Sub,
     sub,
     ShaderNodeVectorMath,
-    "SUBTRACT",
+    ShaderNodeVectorMathOperation::Subtract,
     out_vector,
     Vector
 );
@@ -69,11 +106,18 @@ impl_node_op!(
     Mul,
     mul,
     ShaderNodeVectorMath,
-    "MULTIPLY",
+    ShaderNodeVectorMathOperation::Multiply,
     out_vector,
     Vector
 );
-impl_node_op!(Div, div, ShaderNodeVectorMath, "DIVIDE", out_vector, Vector);
+impl_node_op!(
+    Div,
+    div,
+    ShaderNodeVectorMath,
+    ShaderNodeVectorMathOperation::Divide,
+    out_vector,
+    Vector
+);
 
 // op(Node, f32) -----------------------------------------------------------------
 macro_rules! impl_scalar_op {

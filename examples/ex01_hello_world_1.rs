@@ -1,11 +1,13 @@
 use blender_ramen::core::live_link::send_to_blender;
 use blender_ramen::core::nodes::{
     GeometryNodeDeleteGeometry, GeometryNodeInputPosition, GeometryNodeMeshGrid,
-    GeometryNodeSetMaterial, GeometryNodeStoreNamedAttribute, NodeGroupOutput, ShaderNodeAttribute,
-    ShaderNodeEmission, ShaderNodeOutputMaterial, ShaderNodeSeparateXyz,
+    GeometryNodeSetMaterial, GeometryNodeStoreNamedAttribute,
+    GeometryNodeStoreNamedAttributeDataType, GeometryNodeStoreNamedAttributeDomain,
+    NodeGroupOutput, ShaderNodeAttribute, ShaderNodeEmission, ShaderNodeOutputMaterial,
+    ShaderNodeSeparateXyz,
 };
 use blender_ramen::core::tree::{NodeTree, generate_script_header};
-use blender_ramen::core::types::{AttrDomain, AttrType, Vector};
+use blender_ramen::core::types::Vector;
 use ramen_macros::ramen_math;
 
 const SHARED_UV_ATTR: &str = "Procedural_UV";
@@ -50,8 +52,8 @@ fn main() {
         let store_attr = GeometryNodeStoreNamedAttribute::new()
             .with_geometry(delete.out_geometry())
             .with_name(SHARED_UV_ATTR)
-            .with_data_type(AttrType::FLOAT_VECTOR)
-            .with_domain(AttrDomain::POINT)
+            .with_data_type(GeometryNodeStoreNamedAttributeDataType::FloatVector)
+            .with_domain(GeometryNodeStoreNamedAttributeDomain::Point)
             .set_input(
                 GeometryNodeStoreNamedAttribute::PIN_VALUE,
                 grid.out_uv_map().cast::<Vector>(),
