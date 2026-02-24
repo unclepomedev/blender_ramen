@@ -50,7 +50,7 @@ fn main() {
         let x = sep_pos.out_x();
         let y = sep_pos.out_y();
 
-        let step = call_geometry_group("ComplexSquare")
+        let step = call_geometry_group(SUB_NAME)
             .set_input(0, x)
             .set_input(1, y);
 

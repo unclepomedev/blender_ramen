@@ -16,7 +16,7 @@ fn main() {
     let mut final_script = generate_script_header();
 
     // ==========================================
-    // 1. Shader Node Tree
+    // Shader Node Tree
     // ==========================================
     let shader_script = NodeTree::new_shader(MAT_NAME).build(|| {
         let attr_node = ShaderNodeAttribute::new().with_attribute_name(SHARED_UV_ATTR);
@@ -27,7 +27,7 @@ fn main() {
     final_script.push_str(&shader_script);
 
     // ==========================================
-    // 2. Geometry Node Tree
+    // Geometry Node Tree
     // ==========================================
     let geo_script = NodeTree::new_geometry(GEO_NAME).build(|| {
         let grid = GeometryNodeMeshGrid::new()

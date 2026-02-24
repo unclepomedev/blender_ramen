@@ -4,12 +4,20 @@ use crate::core::types::{Int, NodeSocket, SocketDef};
 use std::fmt::Write;
 
 /// manually link
-fn add_custom_link(src_expr: &str, dst_node: &str, index: usize) {
-    let script = format!(
-        "tree.links.new({}, {}.inputs[{}])\n",
-        src_expr, dst_node, index
-    );
-    append_custom_link(dst_node, script);
+fn add_custom_link<T>(src: &NodeSocket<T>, dst_node: &str, index: usize) {
+    if src.is_literal {
+        let script = format!(
+            "{}.inputs[{}].default_value = {}\n",
+            dst_node, index, src.python_expr
+        );
+        append_custom_link(dst_node, script);
+    } else {
+        let script = format!(
+            "tree.links.new({}, {}.inputs[{}])\n",
+            src.python_expr, dst_node, index
+        );
+        append_custom_link(dst_node, script);
+    }
 }
 
 pub trait RepeatItems {
@@ -49,16 +57,16 @@ macro_rules! impl_repeat_items {
                 )+
             }
             fn link_initial(&self, in_name: &str) {
-                $( add_custom_link(&self.$idx.python_expr, in_name, $idx + 1); )+
+                $( add_custom_link(&self.$idx, in_name, $idx + 1); )+
             }
             fn create_inner(in_name: &str) -> Self {
-                ( $( NodeSocket::<$T>::new_expr(format!("{}.outputs[{}]", in_name, $idx + 1)), )+ )
+                ( $( NodeSocket::<$T>::new_output(format!("{}.outputs[{}]", in_name, $idx + 1)), )+ )
             }
             fn link_result(&self, out_name: &str) {
-                $( add_custom_link(&self.$idx.python_expr, out_name, $idx); )+
+                $( add_custom_link(&self.$idx, out_name, $idx); )+
             }
             fn create_output(out_name: &str) -> Self {
-                ( $( NodeSocket::<$T>::new_expr(format!("{}.outputs[{}]", out_name, $idx)), )+ )
+                ( $( NodeSocket::<$T>::new_output(format!("{}.outputs[{}]", out_name, $idx)), )+ )
             }
         }
     };
@@ -135,7 +143,7 @@ mod tests {
         let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
         context::enter_zone();
 
-        let initial_geo = NodeSocket::<Geo>::new_expr("source_geo_expr");
+        let initial_geo = NodeSocket::<Geo>::new_output("source_geo_expr");
 
         let (out_geo,) = repeat_zone(5, (initial_geo,), |(geo,)| {
             assert!(
@@ -177,9 +185,9 @@ mod tests {
         let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
         context::enter_zone();
 
-        let initial_geo = NodeSocket::<Geo>::new_expr("source_geo");
-        let initial_float = NodeSocket::<Float>::new_expr("source_float");
-        let initial_vec = NodeSocket::<Vector>::new_expr("source_vec");
+        let initial_geo = NodeSocket::<Geo>::new_output("source_geo");
+        let initial_float = NodeSocket::<Float>::new_output("source_float");
+        let initial_vec = NodeSocket::<Vector>::new_output("source_vec");
 
         let (out_g, out_f, out_v) = repeat_zone(
             10,
