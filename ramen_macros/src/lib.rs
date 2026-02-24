@@ -54,16 +54,14 @@ fn get_blender_math_op(name: &str) -> Option<(&'static str, usize)> {
 struct MathFolder;
 
 impl MathFolder {
-    fn process_path(&mut self, path: &syn::ExprPath, folded: &Expr) -> Option<Expr> {
+    fn process_path(&mut self, path: &syn::ExprPath) -> Option<Expr> {
         // Do not clone identifiers registered as function names
         if path.path.segments.len() == 1 {
             let ident_str = path.path.segments[0].ident.to_string();
             if get_blender_math_op(&ident_str).is_some() {
-                return Some(folded.clone());
+                return None;
             }
         }
-        // Unconditionally append .clone() to other path expressions (variables, constants, etc.)
-        // This avoids ownership issues with NodeSocket.
         Some(syn::parse_quote!( #path.clone() ))
     }
 
@@ -169,7 +167,7 @@ impl Fold for MathFolder {
 
         match &folded {
             Expr::Path(path) => {
-                if let Some(expr) = self.process_path(path, &folded) {
+                if let Some(expr) = self.process_path(path) {
                     return expr;
                 }
             }
@@ -207,7 +205,7 @@ impl Fold for MathFolder {
 /// 3. **Literals**: Numeric literals (e.g., `2.0`) are preserved as is.
 ///
 /// ### Supported Operators
-/// - **Arithmetic**: `+`, `-`, `*`, `/`, `%` (Generates `ShaderNodeMath`)
+/// - **Arithmetic**: `+`, `-`, `*`, `/`, `%` (Relies on Rust's `std::ops`, dynamically mapped to appropriate nodes)
 /// - **Comparison**: `==`, `!=`, `<`, `<=`, `>`, `>=` (Generates `FunctionNodeCompare`)
 /// - **Boolean**: `&&` (or `&`), `||` (or `|`), `^`, and unary `!` (Generates `FunctionNodeBooleanMath`)
 ///
@@ -226,13 +224,18 @@ impl Fold for MathFolder {
 /// let condition = ramen_math!(result > 0.0 && b < 0.0);
 /// ```
 ///
-/// ### Limitations
-/// - Path expressions are appended with `.clone()` unless the single-segment name matches a
-///   supported math function. This means:
-///   - **Unnecessary clones** may occur for `Copy` constants or enum variants.
-///   - **Missing clones** (and potential move errors) may occur if a variable is named
-///     identically to a supported function (e.g., naming a variable `sin` or `cos`).
-///     Avoid reusing supported function names as variable names inside `ramen_math!`.
+/// ### Limitations & Type Rules
+/// - **Variable Cloning**: Single-segment variables are appended with `.clone()`. Avoid naming variables
+///   the same as supported functions (e.g., `sin`, `cos`) to prevent unexpected move errors.
+/// - **Arithmetic vs. Literals (`+`, `-`, `*`, `/`)**: The macro delegates basic arithmetic to Rust's
+///   native `std::ops` to support overloaded operations (e.g., `Vector + Vector`). Because of Rust's strict
+///   type checking, **you must use float literals for float math** (e.g., `x * 2.0`). Writing `x * 2` will
+///   result in a compile error (`Cannot multiply NodeSocket<Float> by i32`).
+/// - **Functions and Comparisons**: Unlike arithmetic, functions (e.g., `pow(x, 2)`) and comparisons
+///   (e.g., `x > 0`) are fully intercepted by the macro and wrap their arguments in `NodeSocket::from(...)`.
+///   Therefore, using integers like `2` here is perfectly valid and will be implicitly cast to `Float`.
+/// - **Blender Node Types**: All comparison and boolean operations unconditionally generate `FLOAT` and
+///   `BOOLEAN` type nodes. Non-float types passed into these operations are automatically cast to floats.
 #[proc_macro]
 pub fn ramen_math(input: TokenStream) -> TokenStream {
     let expr = parse_macro_input!(input as Expr);

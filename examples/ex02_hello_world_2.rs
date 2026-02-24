@@ -26,7 +26,7 @@ fn main() {
             let x = group_in.socket::<Float>("X");
             let y = group_in.socket::<Float>("Y");
 
-            let out_x = ramen_math!(pow(x, 2.0) - pow(y, 2.0));
+            let out_x = ramen_math!(pow(x, 2) - pow(y, 2.0));
             let out_y = ramen_math!(2.0 * x * y);
 
             NodeGroupOutput::new()
