@@ -3,44 +3,46 @@ use quote::quote;
 use syn::fold::Fold;
 use syn::{Expr, parse_macro_input};
 
-/// Maps a Rust identifier to a Blender `ShaderNodeMath` operation name and the expected number of arguments.
+/// Maps a Rust identifier to a Blender `ShaderNodeMath` enum variant (PascalCase)
+/// and the expected number of arguments.
 fn get_blender_math_op(name: &str) -> Option<(&'static str, usize)> {
     match name {
-        "sin" => Some(("SINE", 1)),
-        "cos" => Some(("COSINE", 1)),
-        "tan" => Some(("TANGENT", 1)),
-        "asin" => Some(("ARCSINE", 1)),
-        "acos" => Some(("ARCCOSINE", 1)),
-        "atan" => Some(("ARCTANGENT", 1)),
-        "sinh" => Some(("SINH", 1)),
-        "cosh" => Some(("COSH", 1)),
-        "tanh" => Some(("TANH", 1)),
-        "sqrt" => Some(("SQRT", 1)),
-        "exp" => Some(("EXPONENT", 1)),
-        "round" => Some(("ROUND", 1)),
-        "floor" => Some(("FLOOR", 1)),
-        "ceil" => Some(("CEIL", 1)),
-        "trunc" => Some(("TRUNC", 1)),
-        "fract" => Some(("FRACT", 1)),
-        "abs" => Some(("ABSOLUTE", 1)),
-        "sign" => Some(("SIGN", 1)),
-        "radians" => Some(("RADIANS", 1)),
-        "degrees" => Some(("DEGREES", 1)),
+        // TODO: Implement a checking system. (e.g. compile-time checker that verifies every mapped variant string matches the enum names)
+        "sin" => Some(("Sine", 1)),
+        "cos" => Some(("Cosine", 1)),
+        "tan" => Some(("Tangent", 1)),
+        "asin" => Some(("Arcsine", 1)),
+        "acos" => Some(("Arccosine", 1)),
+        "atan" => Some(("Arctangent", 1)),
+        "sinh" => Some(("Sinh", 1)),
+        "cosh" => Some(("Cosh", 1)),
+        "tanh" => Some(("Tanh", 1)),
+        "sqrt" => Some(("Sqrt", 1)),
+        "exp" => Some(("Exponent", 1)),
+        "round" => Some(("Round", 1)),
+        "floor" => Some(("Floor", 1)),
+        "ceil" => Some(("Ceil", 1)),
+        "trunc" => Some(("Trunc", 1)),
+        "fract" => Some(("Fract", 1)),
+        "abs" => Some(("Absolute", 1)),
+        "sign" => Some(("Sign", 1)),
+        "radians" => Some(("Radians", 1)),
+        "degrees" => Some(("Degrees", 1)),
 
-        "log" => Some(("LOGARITHM", 2)),
-        "atan2" => Some(("ARCTAN2", 2)),
-        "pow" => Some(("POWER", 2)),
-        "modulo" => Some(("MODULO", 2)),
-        "min" => Some(("MINIMUM", 2)),
-        "max" => Some(("MAXIMUM", 2)),
-        "snap" => Some(("SNAP", 2)),
-        "pingpong" => Some(("PINGPONG", 2)),
+        "log" => Some(("Logarithm", 2)),
+        "atan2" => Some(("Arctan2", 2)),
+        "pow" => Some(("Power", 2)),
+        "modulo" => Some(("Modulo", 2)),
+        "min" => Some(("Minimum", 2)),
+        "max" => Some(("Maximum", 2)),
+        "snap" => Some(("Snap", 2)),
+        "pingpong" => Some(("Pingpong", 2)),
 
-        "wrap" => Some(("WRAP", 3)),
-        "smooth_min" => Some(("SMOOTH_MIN", 3)),
-        "smooth_max" => Some(("SMOOTH_MAX", 3)),
-        "compare" => Some(("COMPARE", 3)),
-        "multiply_add" => Some(("MULTIPLY_ADD", 3)),
+        "wrap" => Some(("Wrap", 3)),
+        "smooth_min" => Some(("SmoothMin", 3)),
+        "smooth_max" => Some(("SmoothMax", 3)),
+        "compare" => Some(("Compare", 3)),
+        "multiply_add" => Some(("MultiplyAdd", 3)),
 
         _ => None,
     }
@@ -73,7 +75,7 @@ impl MathFolder {
                 None => return Some(folded.clone()),
             };
 
-            let (blender_op, expected_args) = get_blender_math_op(&func_name)?;
+            let (variant_name, expected_args) = get_blender_math_op(&func_name)?;
 
             if call.args.len() != expected_args {
                 let msg = format!(
@@ -89,9 +91,10 @@ impl MathFolder {
                 quote! { .set_input(#i, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Float>::from(#arg)) }
             });
 
+            let variant_ident = syn::Ident::new(variant_name, proc_macro2::Span::call_site());
             return Some(syn::parse_quote! {
                 blender_ramen::core::nodes::ShaderNodeMath::new()
-                    .with_operation(#blender_op)
+                    .with_operation(blender_ramen::core::nodes::ShaderNodeMathOperation::#variant_ident)
                     #(#input_setters)*
                     .out_value()
             });
@@ -104,7 +107,7 @@ impl MathFolder {
             let inner = &un.expr;
             return Some(syn::parse_quote! {
                 blender_ramen::core::nodes::FunctionNodeBooleanMath::new()
-                    .with_operation("NOT")
+                    .with_operation(blender_ramen::core::nodes::FunctionNodeBooleanMathOperation::Not)
                     .set_input(0, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Bool>::from(#inner))
                     .out_boolean()
             });
@@ -114,23 +117,24 @@ impl MathFolder {
 
     fn process_binary(&mut self, bin: &syn::ExprBinary) -> Option<Expr> {
         let cmp_op = match bin.op {
-            syn::BinOp::Eq(_) => Some("EQUAL"),
-            syn::BinOp::Ne(_) => Some("NOT_EQUAL"),
-            syn::BinOp::Lt(_) => Some("LESS_THAN"),
-            syn::BinOp::Le(_) => Some("LESS_EQUAL"),
-            syn::BinOp::Gt(_) => Some("GREATER_THAN"),
-            syn::BinOp::Ge(_) => Some("GREATER_EQUAL"),
+            syn::BinOp::Eq(_) => Some("Equal"),
+            syn::BinOp::Ne(_) => Some("NotEqual"),
+            syn::BinOp::Lt(_) => Some("LessThan"),
+            syn::BinOp::Le(_) => Some("LessEqual"),
+            syn::BinOp::Gt(_) => Some("GreaterThan"),
+            syn::BinOp::Ge(_) => Some("GreaterEqual"),
             _ => None,
         };
 
-        if let Some(blender_op) = cmp_op {
+        if let Some(op_variant_name) = cmp_op {
             let left = &bin.left;
             let right = &bin.right;
+            let op_ident = syn::Ident::new(op_variant_name, proc_macro2::Span::call_site());
 
             return Some(syn::parse_quote! {
                 blender_ramen::core::nodes::FunctionNodeCompare::new()
-                    .with_data_type("FLOAT")
-                    .with_operation(#blender_op)
+                    .with_data_type(blender_ramen::core::nodes::FunctionNodeCompareDataType::Float)
+                    .with_operation(blender_ramen::core::nodes::FunctionNodeCompareOperation::#op_ident)
                     .set_input(0, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Float>::from(#left))
                     .set_input(1, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Float>::from(#right))
                     .out_result()
@@ -138,19 +142,20 @@ impl MathFolder {
         }
 
         let bool_op = match bin.op {
-            syn::BinOp::And(_) | syn::BinOp::BitAnd(_) => Some("AND"),
-            syn::BinOp::Or(_) | syn::BinOp::BitOr(_) => Some("OR"),
-            syn::BinOp::BitXor(_) => Some("XOR"),
+            syn::BinOp::And(_) | syn::BinOp::BitAnd(_) => Some("And"),
+            syn::BinOp::Or(_) | syn::BinOp::BitOr(_) => Some("Or"),
+            syn::BinOp::BitXor(_) => Some("Xor"),
             _ => None,
         };
 
-        if let Some(blender_op) = bool_op {
+        if let Some(op_variant_name) = bool_op {
             let left = &bin.left;
             let right = &bin.right;
+            let op_ident = syn::Ident::new(op_variant_name, proc_macro2::Span::call_site());
 
             return Some(syn::parse_quote! {
                 blender_ramen::core::nodes::FunctionNodeBooleanMath::new()
-                    .with_operation(#blender_op)
+                    .with_operation(blender_ramen::core::nodes::FunctionNodeBooleanMathOperation::#op_ident)
                     .set_input(0, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Bool>::from(#left))
                     .set_input(1, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Bool>::from(#right))
                     .out_boolean()
