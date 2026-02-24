@@ -242,6 +242,8 @@ fn generate_enum_property(
     let mut enum_sanitizer = NameSanitizer::new();
 
     for (item_i, item) in items.iter().enumerate() {
+        // Empty prefix "" forces a leading '_' for safe namespace separation (trimmed later).
+        // Fallback uses format!("Variant{{}}") for empty or numeric-starting results.
         let safe_variant_str = enum_sanitizer
             .sanitize_and_register(&item.identifier, item_i, "")
             .trim_start_matches('_')
@@ -270,6 +272,11 @@ fn generate_enum_property(
                 match self {
                     #(#match_arms),*
                 }
+            }
+        }
+        impl std::fmt::Display for #enum_ident {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(self.as_str())
             }
         }
     };

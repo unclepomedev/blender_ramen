@@ -7,6 +7,7 @@ use syn::{Expr, parse_macro_input};
 /// and the expected number of arguments.
 fn get_blender_math_op(name: &str) -> Option<(&'static str, usize)> {
     match name {
+        // TODO: Implement a checking system. (e.g. compile-time checker that verifies every mapped variant string matches the enum names)
         "sin" => Some(("Sine", 1)),
         "cos" => Some(("Cosine", 1)),
         "tan" => Some(("Tangent", 1)),
