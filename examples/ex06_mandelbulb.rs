@@ -101,7 +101,7 @@ fn main() {
             let ao = ShaderNodeAmbientOcclusion::new().with_samples(16);
 
             // want the value to be larger the lower the AO
-            let crevice_mask = ramen_math!(pow(1.0 - ao.out_ao(), 3.0) * 5.0);
+            let crevice_mask = ramen_math!(pow(1.0 - ao.out_ao(), 3.0) * 20.0);
 
             // base texture
             let diffuse = ShaderNodeBsdfDiffuse::new().with_color((0.02, 0.02, 0.03, 1.0)); // dark blue gray
@@ -187,7 +187,11 @@ fn main() {
                 .set_input(CompositorNodeLensdist::PIN_IMAGE, glare.out_image())
                 .set_input(
                     CompositorNodeLensdist::PIN_DISTORTION,
-                    NodeSocket::from(0.05_f32),
+                    NodeSocket::from(0.02_f32),
+                )
+                .set_input(
+                    CompositorNodeLensdist::PIN_DISPERSION,
+                    NodeSocket::from(0.15_f32),
                 );
 
             NodeGroupOutput::new().set_input(0, lens_dist.out_image());
