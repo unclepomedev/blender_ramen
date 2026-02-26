@@ -166,9 +166,11 @@ tree = bpy.data.node_groups.new(name=tree_name, type='{tree_type_id}')
         format!(
             r#"
 # --- Setup Compositor: {name} ---
-if getattr(bpy.context.scene, 'compositing_node_group', None) is None:
-    bpy.context.scene.compositing_node_group = bpy.data.node_groups.new(name={safe_name}, type='CompositorNodeTree')
-tree = bpy.context.scene.compositing_node_group
+scene = bpy.context.scene
+tree = getattr(scene, 'compositing_node_group', None)
+if tree is None or tree.name != {safe_name}:
+    scene.compositing_node_group = bpy.data.node_groups.new(name={safe_name}, type='CompositorNodeTree')
+    tree = scene.compositing_node_group
 tree.nodes.clear()
 "#,
             name = self.name,
