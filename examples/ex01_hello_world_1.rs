@@ -80,6 +80,7 @@ fn main() {
                 )
                 .set_input(CompositorNodeAlphaOver::PIN_BACKGROUND, rgb.out_color());
 
+            NodeGroupOutput::new().set_input(0, mix.out_image());
             CompositorNodeViewer::new().set_input(0, mix.out_image());
         })
         .send();

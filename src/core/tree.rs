@@ -128,7 +128,7 @@ obj = bpy.context.object
 if not obj:
     raise RuntimeError("No active object in scene; please select an object to attach the GeoNodes modifier.")
 
-mod_name = 'RustNodes'
+mod_name = 'RamenNodes'
 existing_mod = obj.modifiers.get(mod_name)
 if existing_mod:
     obj.modifiers.remove(existing_mod)
@@ -172,6 +172,10 @@ if tree is None or tree.name != {safe_name}:
     scene.compositing_node_group = bpy.data.node_groups.new(name={safe_name}, type='CompositorNodeTree')
     tree = scene.compositing_node_group
 tree.nodes.clear()
+
+tree.interface.clear()
+tree.interface.new_socket('Image', in_out='OUTPUT', socket_type='NodeSocketColor')
+tree.interface.new_socket('Alpha', in_out='OUTPUT', socket_type='NodeSocketFloat')
 "#,
             name = self.name,
             safe_name = safe_name
