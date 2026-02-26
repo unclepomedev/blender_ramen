@@ -48,7 +48,8 @@ impl BlenderProject {
     }
 
     pub fn send(&self) {
-        println!("{}", self.script);
+        #[cfg(debug_assertions)]
+        eprintln!("{}", self.script);
         send_to_blender(&self.script);
     }
 }
