@@ -68,6 +68,8 @@ fn main() {
         .add_compositor_tree(COMP_NAME, || {
             let render_layers = CompositorNodeRLayers::new();
             let rgb = CompositorNodeRgb::new().default_color((1.0, 0.0, 0.0, 0.0));
+            // Note: Since `ramen` uses auto-generated bindings from the Blender API, some node names might be unexpected.
+            // If you cannot find a node, enable "Python Tooltips" in Blender's Developer Extras to look up its exact API name.
             let val_node = ShaderNodeValue::new().default_value(0.95);
             let mix = CompositorNodeAlphaOver::new()
                 .set_input(CompositorNodeAlphaOver::PIN_FACTOR, val_node.out_value())
