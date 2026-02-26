@@ -1,9 +1,9 @@
 use blender_ramen::core::nodes::{
-    GeometryNodeDeleteGeometry, GeometryNodeInputPosition, GeometryNodeMeshGrid,
-    GeometryNodeSetMaterial, GeometryNodeStoreNamedAttribute,
-    GeometryNodeStoreNamedAttributeDataType, GeometryNodeStoreNamedAttributeDomain,
-    NodeGroupOutput, ShaderNodeAttribute, ShaderNodeEmission, ShaderNodeOutputMaterial,
-    ShaderNodeSeparateXyz,
+    CompositorNodeAlphaOver, CompositorNodeRLayers, CompositorNodeRgb, GeometryNodeDeleteGeometry,
+    GeometryNodeInputPosition, GeometryNodeMeshGrid, GeometryNodeSetMaterial,
+    GeometryNodeStoreNamedAttribute, GeometryNodeStoreNamedAttributeDataType,
+    GeometryNodeStoreNamedAttributeDomain, NodeGroupOutput, ShaderNodeAttribute,
+    ShaderNodeEmission, ShaderNodeOutputMaterial, ShaderNodeSeparateXyz, ShaderNodeValue,
 };
 use blender_ramen::core::project::BlenderProject;
 use blender_ramen::core::types::Vector;
@@ -12,6 +12,7 @@ use ramen_macros::ramen_math;
 const SHARED_UV_ATTR: &str = "Procedural_UV";
 const MAT_NAME: &str = "MyRustMat";
 const GEO_NAME: &str = "LinkTest";
+const COMP_NAME: &str = "HelloWorldCompositor";
 
 fn main() {
     BlenderProject::new()
@@ -63,6 +64,22 @@ fn main() {
             // corresponding to the exact order the sockets were registered in the tree's interface.
             // Do not rely on auto-generated `PIN_*` constants for these dynamic nodes.
             NodeGroupOutput::new().set_input(0, set_mat.out_geometry());
+        })
+        .add_compositor_tree(COMP_NAME, || {
+            let render_layers = CompositorNodeRLayers::new();
+            let rgb = CompositorNodeRgb::new().default_color((1.0, 0.0, 0.0, 0.0));
+            // Note: Since `ramen` uses auto-generated bindings from the Blender API, some node names might be unexpected.
+            // If you cannot find a node, enable "Python Tooltips" in Blender's Developer Extras to look up its exact API name.
+            let val_node = ShaderNodeValue::new().default_value(0.95);
+            let mix = CompositorNodeAlphaOver::new()
+                .set_input(CompositorNodeAlphaOver::PIN_FACTOR, val_node.out_value())
+                .set_input(
+                    CompositorNodeAlphaOver::PIN_FOREGROUND,
+                    render_layers.out_image(),
+                )
+                .set_input(CompositorNodeAlphaOver::PIN_BACKGROUND, rgb.out_color());
+
+            NodeGroupOutput::new().set_input(0, mix.out_image());
         })
         .send();
 }
