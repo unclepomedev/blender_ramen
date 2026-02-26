@@ -4,6 +4,7 @@ pub mod context;
 pub mod live_link;
 pub mod nodes;
 pub mod ops;
+pub mod project;
 pub mod tree;
 pub mod types;
 pub mod zone;
