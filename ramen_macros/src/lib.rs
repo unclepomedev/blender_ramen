@@ -103,16 +103,28 @@ impl MathFolder {
     }
 
     fn process_unary(&mut self, un: &syn::ExprUnary) -> Option<Expr> {
-        if let syn::UnOp::Not(_) = un.op {
-            let inner = &un.expr;
-            return Some(syn::parse_quote! {
-                blender_ramen::core::nodes::FunctionNodeBooleanMath::new()
-                    .with_operation(blender_ramen::core::nodes::FunctionNodeBooleanMathOperation::Not)
-                    .set_input(0, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Bool>::from(#inner))
-                    .out_boolean()
-            });
+        match un.op {
+            syn::UnOp::Not(_) => {
+                let inner = &un.expr;
+                Some(syn::parse_quote! {
+                    blender_ramen::core::nodes::FunctionNodeBooleanMath::new()
+                        .with_operation(blender_ramen::core::nodes::FunctionNodeBooleanMathOperation::Not)
+                        .set_input(0, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Bool>::from(#inner))
+                        .out_boolean()
+                })
+            }
+            syn::UnOp::Neg(_) => {
+                let inner = &un.expr;
+                Some(syn::parse_quote! {
+                    blender_ramen::core::nodes::ShaderNodeMath::new()
+                        .with_operation(blender_ramen::core::nodes::ShaderNodeMathOperation::Multiply)
+                        .set_input(0, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Float>::from(#inner))
+                        .set_input(1, blender_ramen::core::types::NodeSocket::<blender_ramen::core::types::Float>::from(-1.0_f32))
+                        .out_value()
+                })
+            }
+            _ => None,
         }
-        None
     }
 
     fn process_binary(&mut self, bin: &syn::ExprBinary) -> Option<Expr> {
