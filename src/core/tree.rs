@@ -8,6 +8,8 @@ pub enum TreeType {
     Shader,
     GeometryGroup,
     ShaderGroup,
+    Compositor,
+    CompositorGroup,
 }
 
 pub struct NodeTree {
@@ -54,9 +56,29 @@ impl NodeTree {
         }
     }
 
+    pub fn new_compositor(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            tree_type: TreeType::Compositor,
+            inputs: vec![],
+            outputs: vec![],
+        }
+    }
+
+    pub fn new_compositor_group(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            tree_type: TreeType::CompositorGroup,
+            inputs: vec![],
+            outputs: vec![],
+        }
+    }
+
     pub fn with_input<S: SocketDef>(mut self, name: &str) -> Self {
         assert!(
-            self.tree_type == TreeType::GeometryGroup || self.tree_type == TreeType::ShaderGroup,
+            self.tree_type == TreeType::GeometryGroup
+                || self.tree_type == TreeType::ShaderGroup
+                || self.tree_type == TreeType::CompositorGroup,
             "with_input can only be used on Group Node Trees!"
         );
         self.inputs
@@ -66,7 +88,9 @@ impl NodeTree {
 
     pub fn with_output<S: SocketDef>(mut self, name: &str) -> Self {
         assert!(
-            self.tree_type == TreeType::GeometryGroup || self.tree_type == TreeType::ShaderGroup,
+            self.tree_type == TreeType::GeometryGroup
+                || self.tree_type == TreeType::ShaderGroup
+                || self.tree_type == TreeType::CompositorGroup,
             "with_output can only be used on Group Node Trees!"
         );
         self.outputs
@@ -137,6 +161,18 @@ tree = bpy.data.node_groups.new(name=tree_name, type='{tree_type_id}')
         )
     }
 
+    fn setup_compositor(&self) -> String {
+        format!(
+            r#"
+# --- Setup Compositor: {name} ---
+tree = bpy.context.scene.compositing_node_group
+if tree:
+    tree.nodes.clear()
+"#,
+            name = self.name
+        )
+    }
+
     fn append_sockets(&self, code: &mut String) {
         for (name, s_type) in &self.inputs {
             let safe_name = python_string_literal(name);
@@ -162,6 +198,8 @@ tree = bpy.data.node_groups.new(name=tree_name, type='{tree_type_id}')
             TreeType::Geometry => self.setup_geometry(),
             TreeType::GeometryGroup => self.setup_group("GeoNodes Group", "GeometryNodeTree"),
             TreeType::ShaderGroup => self.setup_group("Shader Group", "ShaderNodeTree"),
+            TreeType::Compositor => self.setup_compositor(),
+            TreeType::CompositorGroup => self.setup_group("Compositor Group", "CompositorNodeTree"),
         };
 
         self.append_sockets(&mut code);

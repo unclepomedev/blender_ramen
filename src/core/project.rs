@@ -36,9 +36,12 @@ impl BlenderProject {
         self
     }
 
-    pub fn add_compositor(mut self, script: &str) -> Self {
-        // TODO: setup compositor tree
-        self.script.push_str(script);
+    pub fn add_compositor_tree<F>(mut self, tree_name: &str, builder: F) -> Self
+    where
+        F: FnOnce(),
+    {
+        let script = NodeTree::new_compositor(tree_name).build(builder);
+        self.script.push_str(&script);
         self
     }
 
