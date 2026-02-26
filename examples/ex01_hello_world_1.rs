@@ -1,9 +1,10 @@
 use blender_ramen::core::nodes::{
-    CompositorNodeAlphaOver, CompositorNodeRLayers, CompositorNodeRgb, GeometryNodeDeleteGeometry,
-    GeometryNodeInputPosition, GeometryNodeMeshGrid, GeometryNodeSetMaterial,
-    GeometryNodeStoreNamedAttribute, GeometryNodeStoreNamedAttributeDataType,
-    GeometryNodeStoreNamedAttributeDomain, NodeGroupOutput, ShaderNodeAttribute,
-    ShaderNodeEmission, ShaderNodeOutputMaterial, ShaderNodeSeparateXyz, ShaderNodeValue,
+    CompositorNodeAlphaOver, CompositorNodeRLayers, CompositorNodeRgb, CompositorNodeViewer,
+    GeometryNodeDeleteGeometry, GeometryNodeInputPosition, GeometryNodeMeshGrid,
+    GeometryNodeSetMaterial, GeometryNodeStoreNamedAttribute,
+    GeometryNodeStoreNamedAttributeDataType, GeometryNodeStoreNamedAttributeDomain,
+    NodeGroupOutput, ShaderNodeAttribute, ShaderNodeEmission, ShaderNodeOutputMaterial,
+    ShaderNodeSeparateXyz, ShaderNodeValue,
 };
 use blender_ramen::core::project::BlenderProject;
 use blender_ramen::core::types::Vector;
@@ -79,7 +80,7 @@ fn main() {
                 )
                 .set_input(CompositorNodeAlphaOver::PIN_BACKGROUND, rgb.out_color());
 
-            NodeGroupOutput::new().set_input(0, mix.out_image());
+            CompositorNodeViewer::new().set_input(0, mix.out_image());
         })
         .send();
 }

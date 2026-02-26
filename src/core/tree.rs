@@ -162,14 +162,19 @@ tree = bpy.data.node_groups.new(name=tree_name, type='{tree_type_id}')
     }
 
     fn setup_compositor(&self) -> String {
+        let safe_name = python_string_literal(&self.name);
         format!(
             r#"
 # --- Setup Compositor: {name} ---
-tree = bpy.context.scene.compositing_node_group
-if tree:
-    tree.nodes.clear()
+scene = bpy.context.scene
+tree = getattr(scene, 'compositing_node_group', None)
+if tree is None or tree.name != {safe_name}:
+    scene.compositing_node_group = bpy.data.node_groups.new(name={safe_name}, type='CompositorNodeTree')
+    tree = scene.compositing_node_group
+tree.nodes.clear()
 "#,
-            name = self.name
+            name = self.name,
+            safe_name = safe_name
         )
     }
 
