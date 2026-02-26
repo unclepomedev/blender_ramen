@@ -19,7 +19,7 @@ use ramen_macros::ramen_math;
 const POWER: f32 = 8.0;
 
 /// Iteration count (detail)
-const ITERATIONS: i32 = 6;
+const ITERATIONS: i32 = 10;
 
 /// VolumeCube resolution
 const RESOLUTION: i32 = 512;
@@ -28,16 +28,17 @@ const RESOLUTION: i32 = 512;
 const BOUND_EXTENT: f32 = 1.2;
 
 /// Meshing threshold
-const THRESHOLD: f32 = 0.0;
+const THRESHOLD: f32 = 0.01;
 
 // ==========================================
 // Names
 // ==========================================
-const SUB_NAME: &str = "MandelbulbSDFStep";
-const MAIN_TREE_NAME: &str = "MandelbulbSDFGeo";
+const SUB_NAME: &str = "MandelbulbStep";
+const MAIN_TREE_NAME: &str = "MandelbulbGeo";
 const MAT_NAME: &str = "MandelbulbMat";
 const COMP_NAME: &str = "MandelbulbComp";
 
+//noinspection DuplicatedCode
 fn main() {
     mod sub_sockets {
         pub const IN_X: usize = 0;
@@ -46,12 +47,10 @@ fn main() {
         pub const IN_CX: usize = 3;
         pub const IN_CY: usize = 4;
         pub const IN_CZ: usize = 5;
-        pub const IN_DR: usize = 6;
 
         pub const OUT_X: usize = 0;
         pub const OUT_Y: usize = 1;
         pub const OUT_Z: usize = 2;
-        pub const OUT_DR: usize = 3;
     }
     let subtree = NodeTree::new_geometry_group(SUB_NAME)
         .with_input::<Float>("X")
@@ -60,11 +59,9 @@ fn main() {
         .with_input::<Float>("CX")
         .with_input::<Float>("CY")
         .with_input::<Float>("CZ")
-        .with_input::<Float>("DR")
         .with_output::<Float>("OutX")
         .with_output::<Float>("OutY")
         .with_output::<Float>("OutZ")
-        .with_output::<Float>("OutDR")
         .build(|| {
             let group_in = NodeGroupInput::new();
             let x = group_in.socket::<Float>("X");
@@ -73,26 +70,25 @@ fn main() {
             let cx = group_in.socket::<Float>("CX");
             let cy = group_in.socket::<Float>("CY");
             let cz = group_in.socket::<Float>("CZ");
-            let dr = group_in.socket::<Float>("DR");
 
             let p = NodeSocket::<Float>::from(POWER);
 
             let r = ramen_math!(sqrt(pow(x, 2.0) + pow(y, 2.0) + pow(z, 2.0)));
-            let out_dr = ramen_math!(p * pow(r, p - 1.0) * dr + 1.0);
+            let phi = ramen_math!(atan2(y, x));
+            let theta = ramen_math!(atan2(sqrt(pow(x, 2.0) + pow(y, 2.0)), z));
+            let vr = ramen_math!(pow(min(r, 2.0), p)); // min: to prevent NaN pollution
 
-            let r_pow = ramen_math!(pow(r, p));
-            let theta_p = ramen_math!(atan2(y, x) * p);
-            let phi_p = ramen_math!(asin(z / (r + 0.000001)) * p);
+            let n_theta = ramen_math!(p * theta);
+            let n_phi = ramen_math!(p * phi);
 
-            let out_x = ramen_math!(r_pow * cos(phi_p) * cos(theta_p) + cx);
-            let out_y = ramen_math!(r_pow * cos(phi_p) * sin(theta_p) + cy);
-            let out_z = ramen_math!(r_pow * sin(phi_p) + cz);
+            let out_x = ramen_math!(sin(n_theta) * cos(n_phi) * vr + cx);
+            let out_y = ramen_math!(sin(n_theta) * sin(n_phi) * vr + cy);
+            let out_z = ramen_math!(cos(n_theta) * vr + cz);
 
             NodeGroupOutput::new()
                 .set_input(sub_sockets::OUT_X, out_x)
                 .set_input(sub_sockets::OUT_Y, out_y)
-                .set_input(sub_sockets::OUT_Z, out_z)
-                .set_input(sub_sockets::OUT_DR, out_dr);
+                .set_input(sub_sockets::OUT_Z, out_z);
         });
 
     BlenderProject::new()
@@ -129,33 +125,30 @@ fn main() {
             let cy = sep_pos.out_y();
             let cz = sep_pos.out_z();
 
-            let dr_init = NodeSocket::<Float>::from(1.0_f32);
-            let initial_state = (cur_x, cur_y, cur_z, dr_init);
+            let initial_state = (cur_x, cur_y, cur_z);
 
-            let (final_x, final_y, final_z, final_dr) =
-                repeat_zone(ITERATIONS, initial_state, |(x, y, z, dr)| {
+            let (final_x, final_y, final_z) =
+                repeat_zone(ITERATIONS, initial_state, |(x, y, z)| {
                     let step = call_geometry_group(SUB_NAME)
                         .set_input(sub_sockets::IN_X, x)
                         .set_input(sub_sockets::IN_Y, y)
                         .set_input(sub_sockets::IN_Z, z)
                         .set_input(sub_sockets::IN_CX, cx)
                         .set_input(sub_sockets::IN_CY, cy)
-                        .set_input(sub_sockets::IN_CZ, cz)
-                        .set_input(sub_sockets::IN_DR, dr);
+                        .set_input(sub_sockets::IN_CZ, cz);
 
                     (
                         step.out_socket::<Float>("OutX"),
                         step.out_socket::<Float>("OutY"),
                         step.out_socket::<Float>("OutZ"),
-                        step.out_socket::<Float>("OutDR"),
                     )
                 });
 
             let r_final = ramen_math!(sqrt(
                 pow(final_x, 2.0) + pow(final_y, 2.0) + pow(final_z, 2.0)
             ));
-            let sdf = ramen_math!(0.5 * log(std::f32::consts::E, r_final) * r_final / final_dr);
-            let density = ramen_math!(-sdf);
+
+            let density = ramen_math!(2.0 - r_final);
 
             let volume_cube = GeometryNodeVolumeCube::new()
                 .with_resolution_x(RESOLUTION)
