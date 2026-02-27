@@ -44,29 +44,41 @@ pub fn fmt_f32(v: f32) -> String {
     }
 }
 
+use std::sync::{LazyLock, Mutex};
+
+static EXPR_ARENA: LazyLock<Mutex<Vec<String>>> = LazyLock::new(|| Mutex::new(Vec::new()));
+
+fn intern_expr(expr: String) -> usize {
+    let mut arena = EXPR_ARENA.lock().unwrap();
+    let id = arena.len();
+    arena.push(expr);
+    id
+}
+
+pub fn get_expr(id: usize) -> String {
+    let arena = EXPR_ARENA.lock().unwrap();
+    arena[id].clone()
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct NodeSocket<T> {
-    pub python_expr: String,
-    // true if this socket represents a literal value (e.g., 0.5, "abc"),
-    // false if it represents a node output expression (e.g., node.outputs[0])
+    pub expr_id: usize,
     pub is_literal: bool,
     pub _marker: std::marker::PhantomData<T>,
 }
 
+impl<T> Copy for NodeSocket<T> {}
+
 impl<T> Clone for NodeSocket<T> {
     fn clone(&self) -> Self {
-        Self {
-            python_expr: self.python_expr.clone(),
-            is_literal: self.is_literal,
-            _marker: std::marker::PhantomData,
-        }
+        *self
     }
 }
 
 impl<T> NodeSocket<T> {
     pub fn new_literal(expr: impl Into<String>) -> Self {
         Self {
-            python_expr: expr.into(),
+            expr_id: intern_expr(expr.into()),
             is_literal: true,
             _marker: std::marker::PhantomData,
         }
@@ -74,7 +86,7 @@ impl<T> NodeSocket<T> {
 
     pub fn new_output(expr: impl Into<String>) -> Self {
         Self {
-            python_expr: expr.into(),
+            expr_id: intern_expr(expr.into()),
             is_literal: false,
             _marker: std::marker::PhantomData,
         }
@@ -82,10 +94,14 @@ impl<T> NodeSocket<T> {
 
     pub fn cast<U>(self) -> NodeSocket<U> {
         NodeSocket {
-            python_expr: self.python_expr,
+            expr_id: self.expr_id,
             is_literal: self.is_literal,
             _marker: std::marker::PhantomData,
         }
+    }
+
+    pub fn python_expr(&self) -> String {
+        get_expr(self.expr_id)
     }
 }
 
@@ -170,12 +186,6 @@ impl From<NodeSocket<Vector>> for NodeSocket<Color> {
 impl From<NodeSocket<Color>> for NodeSocket<Vector> {
     fn from(socket: NodeSocket<Color>) -> Self {
         socket.cast::<Vector>()
-    }
-}
-
-impl<T> From<&NodeSocket<T>> for NodeSocket<T> {
-    fn from(socket: &NodeSocket<T>) -> Self {
-        socket.clone()
     }
 }
 
@@ -302,52 +312,55 @@ mod tests {
     #[test]
     fn test_primitive_conversions() {
         assert_eq!(
-            NodeSocket::<Float>::from(std::f32::consts::PI).python_expr,
+            NodeSocket::<Float>::from(std::f32::consts::PI).python_expr(),
             "3.1416"
         );
         assert_eq!(
-            NodeSocket::<Float>::from(f32::NAN).python_expr,
+            NodeSocket::<Float>::from(f32::NAN).python_expr(),
             "float('nan')"
         );
-        assert_eq!(NodeSocket::<Int>::from(42).python_expr, "42");
-        assert_eq!(NodeSocket::<Bool>::from(true).python_expr, "True");
-        assert_eq!(NodeSocket::<Bool>::from(false).python_expr, "False");
+        assert_eq!(NodeSocket::<Int>::from(42).python_expr(), "42");
+        assert_eq!(NodeSocket::<Bool>::from(true).python_expr(), "True");
+        assert_eq!(NodeSocket::<Bool>::from(false).python_expr(), "False");
     }
 
     #[test]
     fn test_extended_numeric_conversions() {
-        assert_eq!(NodeSocket::<Float>::from(42_i32).python_expr, "42.0000");
-        assert_eq!(NodeSocket::<Float>::from(100_usize).python_expr, "100.0000");
+        assert_eq!(NodeSocket::<Float>::from(42_i32).python_expr(), "42.0000");
+        assert_eq!(
+            NodeSocket::<Float>::from(100_usize).python_expr(),
+            "100.0000"
+        );
 
-        assert_eq!(NodeSocket::<Int>::from(42_i32).python_expr, "42");
-        assert_eq!(NodeSocket::<Int>::from(100_usize).python_expr, "100");
+        assert_eq!(NodeSocket::<Int>::from(42_i32).python_expr(), "42");
+        assert_eq!(NodeSocket::<Int>::from(100_usize).python_expr(), "100");
     }
 
     #[test]
     fn test_string_escaping() {
         let s1 = NodeSocket::<StringType>::from("Hello");
-        assert_eq!(s1.python_expr, "\"Hello\"");
+        assert_eq!(s1.python_expr(), "\"Hello\"");
 
         let s2 = NodeSocket::<StringType>::from("It's an \"apple\"\nNext line");
-        assert_eq!(s2.python_expr, "\"It's an \\\"apple\\\"\\nNext line\"");
+        assert_eq!(s2.python_expr(), "\"It's an \\\"apple\\\"\\nNext line\"");
     }
 
     #[test]
     fn test_tuple_conversions() {
         let v = NodeSocket::<Vector>::from((1.0, 0.5, -2.1));
-        assert_eq!(v.python_expr, "(1.0000, 0.5000, -2.1000)");
+        assert_eq!(v.python_expr(), "(1.0000, 0.5000, -2.1000)");
 
         let c = NodeSocket::<Color>::from((1.0, 0.0, 0.0, 1.0));
-        assert_eq!(c.python_expr, "(1.0000, 0.0000, 0.0000, 1.0000)");
+        assert_eq!(c.python_expr(), "(1.0000, 0.0000, 0.0000, 1.0000)");
     }
 
     #[test]
     fn test_socket_casting() {
         let vec = NodeSocket::<Vector>::new_output("some_node.outputs[0]");
         let color: NodeSocket<Color> = vec.into();
-        assert_eq!(color.python_expr, "some_node.outputs[0]");
+        assert_eq!(color.python_expr(), "some_node.outputs[0]");
 
         let any: NodeSocket<Any> = color.into();
-        assert_eq!(any.python_expr, "some_node.outputs[0]");
+        assert_eq!(any.python_expr(), "some_node.outputs[0]");
     }
 }

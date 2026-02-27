@@ -16,36 +16,14 @@ use crate::core::types::{Float, NodeSocket, Vector};
 
 macro_rules! impl_node_op {
     ($Trait:ident, $method:ident, $Node:ident, $op_enum:expr, $out:ident, $Type:ident) => {
-        // 1. &A + &B
-        impl std::ops::$Trait<&NodeSocket<$Type>> for &NodeSocket<$Type> {
-            type Output = NodeSocket<$Type>;
-            fn $method(self, rhs: &NodeSocket<$Type>) -> Self::Output {
-                $Node::new()
-                    .with_operation($op_enum)
-                    .set_input(0, self.clone())
-                    .set_input(1, rhs.clone())
-                    .$out()
-            }
-        }
-        // 2. A + &B
-        impl std::ops::$Trait<&NodeSocket<$Type>> for NodeSocket<$Type> {
-            type Output = NodeSocket<$Type>;
-            fn $method(self, rhs: &NodeSocket<$Type>) -> Self::Output {
-                (&self).$method(rhs)
-            }
-        }
-        // 3. &A + B
-        impl std::ops::$Trait<NodeSocket<$Type>> for &NodeSocket<$Type> {
-            type Output = NodeSocket<$Type>;
-            fn $method(self, rhs: NodeSocket<$Type>) -> Self::Output {
-                self.$method(&rhs)
-            }
-        }
-        // 4. A + B
         impl std::ops::$Trait<NodeSocket<$Type>> for NodeSocket<$Type> {
             type Output = NodeSocket<$Type>;
             fn $method(self, rhs: NodeSocket<$Type>) -> Self::Output {
-                (&self).$method(&rhs)
+                $Node::new()
+                    .with_operation($op_enum)
+                    .set_input(0, self)
+                    .set_input(1, rhs)
+                    .$out()
             }
         }
     };
@@ -122,32 +100,18 @@ impl_node_op!(
 // op(Node, f32) -----------------------------------------------------------------
 macro_rules! impl_scalar_op {
     ($Trait:ident, $method:ident) => {
-        // &Node + f32
-        impl std::ops::$Trait<f32> for &NodeSocket<Float> {
-            type Output = NodeSocket<Float>;
-            fn $method(self, rhs: f32) -> Self::Output {
-                self.$method(&NodeSocket::<Float>::from(rhs))
-            }
-        }
         // Node + f32
         impl std::ops::$Trait<f32> for NodeSocket<Float> {
             type Output = NodeSocket<Float>;
             fn $method(self, rhs: f32) -> Self::Output {
-                (&self).$method(rhs)
-            }
-        }
-        // f32 + &Node
-        impl std::ops::$Trait<&NodeSocket<Float>> for f32 {
-            type Output = NodeSocket<Float>;
-            fn $method(self, rhs: &NodeSocket<Float>) -> Self::Output {
-                NodeSocket::<Float>::from(self).$method(rhs)
+                self.$method(NodeSocket::<Float>::from(rhs))
             }
         }
         // f32 + Node
         impl std::ops::$Trait<NodeSocket<Float>> for f32 {
             type Output = NodeSocket<Float>;
             fn $method(self, rhs: NodeSocket<Float>) -> Self::Output {
-                self.$method(&rhs)
+                NodeSocket::<Float>::from(self).$method(rhs)
             }
         }
     };
@@ -161,32 +125,18 @@ impl_scalar_op!(Div, div);
 // op(Vector, f32) -----------------------------------------------------------------
 macro_rules! impl_vector_scalar_op {
     ($Trait:ident, $method:ident) => {
-        // &Vector + f32
-        impl std::ops::$Trait<f32> for &NodeSocket<Vector> {
-            type Output = NodeSocket<Vector>;
-            fn $method(self, rhs: f32) -> Self::Output {
-                self.$method(&NodeSocket::<Vector>::from((rhs, rhs, rhs)))
-            }
-        }
         // Vector + f32
         impl std::ops::$Trait<f32> for NodeSocket<Vector> {
             type Output = NodeSocket<Vector>;
             fn $method(self, rhs: f32) -> Self::Output {
-                (&self).$method(rhs)
-            }
-        }
-        // f32 + &Vector
-        impl std::ops::$Trait<&NodeSocket<Vector>> for f32 {
-            type Output = NodeSocket<Vector>;
-            fn $method(self, rhs: &NodeSocket<Vector>) -> Self::Output {
-                NodeSocket::<Vector>::from((self, self, self)).$method(rhs)
+                self.$method(NodeSocket::<Vector>::from((rhs, rhs, rhs)))
             }
         }
         // f32 + Vector
         impl std::ops::$Trait<NodeSocket<Vector>> for f32 {
             type Output = NodeSocket<Vector>;
             fn $method(self, rhs: NodeSocket<Vector>) -> Self::Output {
-                self.$method(&rhs)
+                NodeSocket::<Vector>::from((self, self, self)).$method(rhs)
             }
         }
     };
@@ -214,13 +164,11 @@ mod tests {
         let a = NodeSocket::<Float>::from(10.0);
         let b = NodeSocket::<Float>::from(2.0);
 
-        let _ = &a + &b;
-        let _ = a.clone() + &b;
-        let _ = &a + b.clone();
-        let _ = a.clone() + b.clone();
+        let _ = a + b;
+        let _ = a + b;
 
         let nodes = context::exit_zone();
-        assert_eq!(nodes.len(), 4);
+        assert_eq!(nodes.len(), 2);
         for node in nodes {
             assert_eq!(node.bl_idname, "ShaderNodeMath");
             assert_eq!(node.properties.get("operation").unwrap(), "\"ADD\"");
@@ -235,10 +183,10 @@ mod tests {
         let a = NodeSocket::<Float>::from(10.0);
         let b = NodeSocket::<Float>::from(2.0);
 
-        let _ = &a + &b;
-        let _ = &a - &b;
-        let _ = &a * &b;
-        let _ = &a / &b;
+        let _ = a + b;
+        let _ = a - b;
+        let _ = a * b;
+        let _ = a / b;
 
         let nodes = context::exit_zone();
         assert_eq!(nodes.len(), 4);
@@ -262,8 +210,8 @@ mod tests {
         context::enter_zone();
         let a = NodeSocket::<Float>::from(5.0);
 
-        let _ = &a - 2.0;
-        let _ = 100.0 / &a;
+        let _ = a - 2.0;
+        let _ = 100.0 / a;
 
         let nodes = context::exit_zone();
         assert_eq!(nodes.len(), 2);
@@ -272,14 +220,14 @@ mod tests {
             nodes[0].properties.get("operation").unwrap(),
             "\"SUBTRACT\""
         );
-        assert_eq!(nodes[0].inputs.get(&0).unwrap().expr, a.python_expr);
+        assert_eq!(nodes[0].inputs.get(&0).unwrap().expr, a.python_expr());
         assert_eq!(nodes[0].inputs.get(&1).unwrap().expr, "2.0000");
         assert!(nodes[0].inputs.get(&0).unwrap().is_literal);
         assert!(nodes[0].inputs.get(&1).unwrap().is_literal);
 
         assert_eq!(nodes[1].properties.get("operation").unwrap(), "\"DIVIDE\"");
         assert_eq!(nodes[1].inputs.get(&0).unwrap().expr, "100.0000");
-        assert_eq!(nodes[1].inputs.get(&1).unwrap().expr, a.python_expr);
+        assert_eq!(nodes[1].inputs.get(&1).unwrap().expr, a.python_expr());
         assert!(nodes[1].inputs.get(&0).unwrap().is_literal);
         assert!(nodes[1].inputs.get(&1).unwrap().is_literal);
     }
@@ -292,10 +240,10 @@ mod tests {
         let v1 = NodeSocket::<Vector>::from((1.0, 2.0, 3.0));
         let v2 = NodeSocket::<Vector>::from((0.0, -1.0, 0.5));
 
-        let _ = &v1 + &v2;
-        let _ = &v1 - &v2;
-        let _ = &v1 * &v2;
-        let _ = &v1 / &v2;
+        let _ = v1 + v2;
+        let _ = v1 - v2;
+        let _ = v1 * v2;
+        let _ = v1 / v2;
 
         let nodes = context::exit_zone();
         assert_eq!(nodes.len(), 4);
@@ -323,8 +271,8 @@ mod tests {
         context::enter_zone();
         let v = NodeSocket::<Vector>::from((1.0, 2.0, 3.0));
 
-        let _ = &v * 5.0;
-        let _ = 10.0 / &v;
+        let _ = v * 5.0;
+        let _ = 10.0 / v;
 
         let nodes = context::exit_zone();
         assert_eq!(nodes.len(), 2);

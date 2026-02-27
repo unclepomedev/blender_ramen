@@ -24,9 +24,7 @@ fn main() {
             let (out_geo, _final_offset) =
                 repeat_zone(5, (initial_geo, initial_offset), |(geo, offset)| {
                     // Inside the zone, we translate the geometry up by `offset` each step
-                    let offset_vec = ShaderNodeCombineXyz::new()
-                        .with_z(offset.clone())
-                        .out_vector();
+                    let offset_vec = ShaderNodeCombineXyz::new().with_z(offset).out_vector();
 
                     let set_pos = GeometryNodeSetPosition::new()
                         .with_geometry(geo)

@@ -180,7 +180,7 @@ fn generate_inputs(
         methods.push(quote! {
             pub fn #method_name(self, val: impl Into<crate::core::types::NodeSocket<#rust_type>>) -> Self {
                 let socket = val.into();
-                crate::core::context::update_input(&self.name, #i, socket.python_expr, socket.is_literal);
+                crate::core::context::update_input(&self.name, #i, socket.python_expr(), socket.is_literal);
                 self
             }
         });
@@ -204,7 +204,7 @@ fn generate_outputs(
         let method_default = format_ident!("{}", default_name);
         defaults.push(quote! {
             pub fn #method_default(self, val: impl Into<crate::core::types::NodeSocket<#rust_type>>) -> Self {
-                crate::core::context::update_output_default(&self.name, #i, val.into().python_expr);
+                crate::core::context::update_output_default(&self.name, #i, val.into().python_expr());
                 self
             }
         });
@@ -358,7 +358,7 @@ fn generate_node_struct(node_id: &str, def: &NodeDef) -> TokenStream {
             #(#property_methods)*
 
             pub fn set_input<T>(self, index: usize, val: crate::core::types::NodeSocket<T>) -> Self {
-                crate::core::context::update_input(&self.name, index, val.python_expr, val.is_literal);
+                crate::core::context::update_input(&self.name, index, val.python_expr(), val.is_literal);
                 self
             }
         }
