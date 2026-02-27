@@ -97,6 +97,39 @@ impl_node_op!(
     Vector
 );
 
+// op(NodeSocket<Vector>, NodeSocket<Float>) -----------------------------------
+macro_rules! impl_vector_float_op {
+    ($Trait:ident, $method:ident, $op_enum:expr) => {
+        // Vector + Float
+        impl std::ops::$Trait<NodeSocket<Float>> for NodeSocket<Vector> {
+            type Output = NodeSocket<Vector>;
+            fn $method(self, rhs: NodeSocket<Float>) -> Self::Output {
+                ShaderNodeVectorMath::new()
+                    .with_operation($op_enum)
+                    .set_input(0, self)
+                    .set_input(1, rhs)
+                    .out_vector()
+            }
+        }
+        // Float + Vector
+        impl std::ops::$Trait<NodeSocket<Vector>> for NodeSocket<Float> {
+            type Output = NodeSocket<Vector>;
+            fn $method(self, rhs: NodeSocket<Vector>) -> Self::Output {
+                ShaderNodeVectorMath::new()
+                    .with_operation($op_enum)
+                    .set_input(0, self)
+                    .set_input(1, rhs)
+                    .out_vector()
+            }
+        }
+    };
+}
+
+impl_vector_float_op!(Add, add, ShaderNodeVectorMathOperation::Add);
+impl_vector_float_op!(Sub, sub, ShaderNodeVectorMathOperation::Subtract);
+impl_vector_float_op!(Mul, mul, ShaderNodeVectorMathOperation::Multiply);
+impl_vector_float_op!(Div, div, ShaderNodeVectorMathOperation::Divide);
+
 // op(Node, f32) -----------------------------------------------------------------
 macro_rules! impl_scalar_op {
     ($Trait:ident, $method:ident) => {
@@ -291,5 +324,26 @@ mod tests {
             nodes[1].inputs.get(&0).unwrap().expr,
             "(10.0000, 10.0000, 10.0000)"
         );
+    }
+
+    #[test]
+    fn test_vector_float_node_operations() {
+        let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
+
+        context::enter_zone();
+        let v = NodeSocket::<Vector>::from((1.0, 2.0, 3.0));
+        let f = NodeSocket::<Float>::from(5.0);
+
+        let _ = v * f;
+        let _ = f / v;
+
+        let nodes = context::exit_zone();
+        assert_eq!(nodes.len(), 2);
+
+        assert_eq!(
+            nodes[0].properties.get("operation").unwrap(),
+            "\"MULTIPLY\""
+        );
+        assert_eq!(nodes[1].properties.get("operation").unwrap(), "\"DIVIDE\"");
     }
 }
