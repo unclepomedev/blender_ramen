@@ -44,25 +44,35 @@ pub fn fmt_f32(v: f32) -> String {
     }
 }
 
+use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
-static EXPR_ARENA: LazyLock<Mutex<Vec<String>>> = LazyLock::new(|| Mutex::new(Vec::new()));
+#[derive(Default)]
+struct ExprArena {
+    exprs: Vec<String>,
+    ids: HashMap<String, usize>,
+}
+static EXPR_ARENA: LazyLock<Mutex<ExprArena>> = LazyLock::new(|| Mutex::new(ExprArena::default()));
 
 fn intern_expr(expr: String) -> usize {
     let mut arena = EXPR_ARENA.lock().unwrap();
-    let id = arena.len();
-    arena.push(expr);
+    if let Some(id) = arena.ids.get(&expr) {
+        return *id;
+    }
+    let id = arena.exprs.len();
+    arena.exprs.push(expr.clone());
+    arena.ids.insert(expr, id);
     id
 }
 
-pub fn get_expr(id: usize) -> String {
+fn get_expr(id: usize) -> Option<String> {
     let arena = EXPR_ARENA.lock().unwrap();
-    arena[id].clone()
+    arena.exprs.get(id).cloned()
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct NodeSocket<T> {
-    pub expr_id: usize,
+    expr_id: usize,
     pub is_literal: bool,
     pub _marker: std::marker::PhantomData<T>,
 }
@@ -101,7 +111,7 @@ impl<T> NodeSocket<T> {
     }
 
     pub fn python_expr(&self) -> String {
-        get_expr(self.expr_id)
+        get_expr(self.expr_id).expect("internal error: invalid expression id")
     }
 }
 
