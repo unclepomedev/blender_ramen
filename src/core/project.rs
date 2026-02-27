@@ -67,18 +67,9 @@ impl BlenderProject {
         self
     }
 
-    pub fn add_named_script(mut self, name: &str, script: &str) -> Self {
+    pub fn add_subtree(mut self, name: &str, script: &str) -> Self {
         self.items.push(ProjectItem {
             name: name.to_string(),
-            script: script.to_string(),
-            dependencies: vec![],
-        });
-        self
-    }
-
-    pub fn add_script(mut self, script: &str) -> Self {
-        self.items.push(ProjectItem {
-            name: format!("_script_{}", self.items.len()),
             script: script.to_string(),
             dependencies: vec![],
         });
@@ -115,10 +106,14 @@ fn resolve_dependencies(items: &[ProjectItem]) -> Result<Vec<&ProjectItem>, Stri
     for item in items {
         let mut deps = item.dependencies.clone();
         for name in &all_names {
-            // If the script contains the name of another tree, assume it's a dependency
-            // Also ignore auto-generated script names
-            if name != &item.name && !name.starts_with("_script_") && item.script.contains(name) {
-                deps.push(name.clone());
+            // If the script contains the exact name of another tree in quotes, assume it's a dependency
+            // TODO: (HACK) This may produce false positive when unrelated string literals coincidentally match an item name.
+            if name != &item.name {
+                let double_quoted = format!("\"{}\"", name);
+                let single_quoted = format!("'{}'", name);
+                if item.script.contains(&double_quoted) || item.script.contains(&single_quoted) {
+                    deps.push(name.clone());
+                }
             }
         }
         graph.insert(item.name.clone(), deps);
