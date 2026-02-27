@@ -13,7 +13,7 @@ fn main() {
     // ==========================================
     // subroutine: Z^2 s.t. Z = X + iY
     // ==========================================
-    let complex_sq_script = NodeTree::new_geometry_group(SUB_NAME)
+    let complex_calc_tree = NodeTree::new_geometry_group(SUB_NAME)
         .with_input::<Float>("X")
         .with_input::<Float>("Y")
         .with_output::<Float>("OutX")
@@ -33,7 +33,7 @@ fn main() {
         });
 
     BlenderProject::new()
-        .add_script(&complex_sq_script)
+        .add_subtree(SUB_NAME, &complex_calc_tree)
         .add_geometry_tree(MAIN_TREE_NAME, || {
             let grid = GeometryNodeMeshGrid::new()
                 .with_size_x(10.0)

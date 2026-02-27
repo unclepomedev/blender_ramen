@@ -92,7 +92,7 @@ fn main() {
         });
 
     BlenderProject::new()
-        .add_script(&subtree)
+        .add_subtree(SUB_NAME, &subtree)
         .add_shader_tree(MAT_NAME, || {
             let ao = ShaderNodeAmbientOcclusion::new().with_samples(16);
 

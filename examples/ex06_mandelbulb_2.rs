@@ -97,7 +97,7 @@ fn main() {
         });
 
     BlenderProject::new()
-        .add_script(&subtree)
+        .add_subtree(SUB_NAME, &subtree)
         .add_shader_tree(MAT_NAME, || {
             let ao = ShaderNodeAmbientOcclusion::new().with_samples(16);
 
@@ -155,7 +155,7 @@ fn main() {
             let r_final = ramen_math!(sqrt(
                 pow(final_x, 2.0) + pow(final_y, 2.0) + pow(final_z, 2.0)
             ));
-            let sdf = ramen_math!(0.5 / log(r_final, std::f32::consts::E) * (r_final + 0.000001) / final_dr);
+            let sdf = ramen_math!(0.5 / log(r_final, std::f32::consts::E) * r_final / final_dr);
             let density = ramen_math!(-sdf);
 
             let volume_cube = GeometryNodeVolumeCube::new()
