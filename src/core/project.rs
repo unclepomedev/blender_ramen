@@ -67,6 +67,15 @@ impl BlenderProject {
         self
     }
 
+    pub fn add_named_script(mut self, name: &str, script: &str) -> Self {
+        self.items.push(ProjectItem {
+            name: name.to_string(),
+            script: script.to_string(),
+            dependencies: vec![],
+        });
+        self
+    }
+
     pub fn add_script(mut self, script: &str) -> Self {
         self.items.push(ProjectItem {
             name: format!("_script_{}", self.items.len()),
@@ -79,7 +88,13 @@ impl BlenderProject {
     pub fn send(&self) {
         let mut final_script = self.header.clone();
 
-        let sorted_items = resolve_dependencies(&self.items);
+        let sorted_items = match resolve_dependencies(&self.items) {
+            Ok(items) => items,
+            Err(err) => {
+                eprintln!("❌ Dependency resolution failed: {}", err);
+                return;
+            }
+        };
 
         for item in sorted_items {
             final_script.push_str(&item.script);
@@ -92,7 +107,7 @@ impl BlenderProject {
 }
 
 /// Topological Sort
-fn resolve_dependencies(items: &[ProjectItem]) -> Vec<&ProjectItem> {
+fn resolve_dependencies(items: &[ProjectItem]) -> Result<Vec<&ProjectItem>, String> {
     let all_names: Vec<String> = items.iter().map(|i| i.name.clone()).collect();
     let mut graph = HashMap::new();
     let mut item_map = HashMap::new();
@@ -107,7 +122,9 @@ fn resolve_dependencies(items: &[ProjectItem]) -> Vec<&ProjectItem> {
             }
         }
         graph.insert(item.name.clone(), deps);
-        item_map.insert(item.name.clone(), item);
+        if item_map.insert(item.name.clone(), item).is_some() {
+            return Err(format!("Duplicate project item name: {}", item.name));
+        }
     }
 
     // DFS
@@ -121,24 +138,30 @@ fn resolve_dependencies(items: &[ProjectItem]) -> Vec<&ProjectItem> {
         visited: &mut HashSet<String>,
         visiting: &mut HashSet<String>,
         sorted_names: &mut Vec<String>,
-    ) {
+    ) -> Result<(), String> {
         if visited.contains(name) {
-            return;
+            return Ok(());
         }
         if visiting.contains(name) {
-            // Cyclic dependency detected, just return to avoid infinite loop
-            return;
+            return Err(format!("Cyclic dependency detected at '{}'", name));
         }
 
         visiting.insert(name.clone());
         if let Some(deps) = graph.get(name) {
             for dep in deps {
-                visit(dep, graph, visited, visiting, sorted_names);
+                if !graph.contains_key(dep) {
+                    return Err(format!(
+                        "Unknown dependency '{}' referenced by '{}'",
+                        dep, name
+                    ));
+                }
+                visit(dep, graph, visited, visiting, sorted_names)?;
             }
         }
         visiting.remove(name);
         visited.insert(name.clone());
         sorted_names.push(name.clone());
+        Ok(())
     }
 
     for item in items {
@@ -148,11 +171,11 @@ fn resolve_dependencies(items: &[ProjectItem]) -> Vec<&ProjectItem> {
             &mut visited,
             &mut visiting,
             &mut sorted_names,
-        );
+        )?;
     }
 
-    sorted_names
+    Ok(sorted_names
         .into_iter()
         .filter_map(|name| item_map.remove(&name))
-        .collect()
+        .collect())
 }
