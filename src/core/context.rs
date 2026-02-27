@@ -115,39 +115,45 @@ impl BuildContext {
         }
     }
 
-    pub fn update_property(&mut self, name: &str, key: &str, val: String) {
+    pub fn update_property(&mut self, name: &str, key: &str, val: impl Into<String>) {
         if let Some(node) = self.nodes.get_mut(name) {
-            node.properties.insert(key.to_string(), val);
+            node.properties.insert(key.to_string(), val.into());
         }
     }
 
-    pub fn update_input(&mut self, name: &str, index: usize, val: String, is_literal: bool) {
+    pub fn update_input(
+        &mut self,
+        name: &str,
+        index: usize,
+        val: impl Into<String>,
+        is_literal: bool,
+    ) {
         if let Some(node) = self.nodes.get_mut(name) {
             node.inputs.insert(
                 index,
                 InputValue {
-                    expr: val,
+                    expr: val.into(),
                     is_literal,
                 },
             );
         }
     }
 
-    pub fn update_output_default(&mut self, name: &str, index: usize, val: String) {
+    pub fn update_output_default(&mut self, name: &str, index: usize, val: impl Into<String>) {
         if let Some(node) = self.nodes.get_mut(name) {
-            node.output_defaults.insert(index, val);
+            node.output_defaults.insert(index, val.into());
         }
     }
 
-    pub fn update_post_creation(&mut self, name: &str, script: String) {
+    pub fn update_post_creation(&mut self, name: &str, script: impl Into<String>) {
         if let Some(node) = self.nodes.get_mut(name) {
-            node.post_creation_script = script;
+            node.post_creation_script = script.into();
         }
     }
 
-    pub fn append_custom_link(&mut self, name: &str, script: String) {
+    pub fn append_custom_link(&mut self, name: &str, script: &str) {
         if let Some(node) = self.nodes.get_mut(name) {
-            node.custom_links_script.push_str(&script);
+            node.custom_links_script.push_str(script);
         }
     }
 
@@ -200,32 +206,32 @@ pub static GLOBAL_CONTEXT: LazyLock<Mutex<BuildContext>> =
 pub fn add_node(data: NodeData) {
     GLOBAL_CONTEXT.lock().unwrap().add_node(data);
 }
-pub fn update_property(name: &str, key: &str, val: String) {
+pub fn update_property(name: &str, key: &str, val: impl Into<String>) {
     GLOBAL_CONTEXT
         .lock()
         .unwrap()
         .update_property(name, key, val);
 }
-pub fn update_input(name: &str, index: usize, val: String, is_literal: bool) {
+pub fn update_input(name: &str, index: usize, val: impl Into<String>, is_literal: bool) {
     GLOBAL_CONTEXT
         .lock()
         .unwrap()
         .update_input(name, index, val, is_literal);
 }
-pub fn update_output_default(name: &str, index: usize, val: String) {
+pub fn update_output_default(name: &str, index: usize, val: impl Into<String>) {
     GLOBAL_CONTEXT
         .lock()
         .unwrap()
         .update_output_default(name, index, val);
 }
-pub fn update_post_creation(name: &str, script: String) {
+pub fn update_post_creation(name: &str, script: impl Into<String>) {
     GLOBAL_CONTEXT
         .lock()
         .unwrap()
         .update_post_creation(name, script);
 }
 
-pub fn append_custom_link(name: &str, script: String) {
+pub fn append_custom_link(name: &str, script: &str) {
     GLOBAL_CONTEXT
         .lock()
         .unwrap()

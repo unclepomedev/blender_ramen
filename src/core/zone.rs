@@ -8,15 +8,19 @@ fn add_custom_link<T>(src: &NodeSocket<T>, dst_node: &str, index: usize) {
     if src.is_literal {
         let script = format!(
             "{}.inputs[{}].default_value = {}\n",
-            dst_node, index, src.python_expr
+            dst_node,
+            index,
+            src.python_expr()
         );
-        append_custom_link(dst_node, script);
+        append_custom_link(dst_node, &script);
     } else {
         let script = format!(
             "tree.links.new({}, {}.inputs[{}])\n",
-            src.python_expr, dst_node, index
+            src.python_expr(),
+            dst_node,
+            index
         );
-        append_custom_link(dst_node, script);
+        append_custom_link(dst_node, &script);
     }
 }
 
@@ -147,7 +151,7 @@ mod tests {
 
         let (out_geo,) = repeat_zone(5, (initial_geo,), |(geo,)| {
             assert!(
-                geo.python_expr.contains(".outputs[1]"),
+                geo.python_expr().contains(".outputs[1]"),
                 "Inner socket must reference outputs[1] to skip 'Iteration' output"
             );
             (geo,)
@@ -155,7 +159,7 @@ mod tests {
 
         let nodes = context::exit_zone();
 
-        assert!(out_geo.python_expr.contains(".outputs[0]"));
+        assert!(out_geo.python_expr().contains(".outputs[0]"));
 
         let mut found_setup = false;
         let mut in_node_name = String::new();
@@ -193,20 +197,20 @@ mod tests {
             10,
             (initial_geo, initial_float, initial_vec),
             |(g, f, v)| {
-                assert!(g.python_expr.contains(".outputs[1]"));
-                assert!(f.python_expr.contains(".outputs[2]"));
-                assert!(v.python_expr.contains(".outputs[3]"));
+                assert!(g.python_expr().contains(".outputs[1]"));
+                assert!(f.python_expr().contains(".outputs[2]"));
+                assert!(v.python_expr().contains(".outputs[3]"));
 
-                let new_f = &f + 1.0;
+                let new_f = f + 1.0;
                 (g, new_f, v)
             },
         );
 
         let nodes = context::exit_zone();
 
-        assert!(out_g.python_expr.contains(".outputs[0]"));
-        assert!(out_f.python_expr.contains(".outputs[1]"));
-        assert!(out_v.python_expr.contains(".outputs[2]"));
+        assert!(out_g.python_expr().contains(".outputs[0]"));
+        assert!(out_f.python_expr().contains(".outputs[1]"));
+        assert!(out_v.python_expr().contains(".outputs[2]"));
 
         let mut in_node_name = String::new();
         let mut out_node_name = String::new();
