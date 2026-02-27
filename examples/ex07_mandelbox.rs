@@ -26,17 +26,20 @@ const BOUND_EXTENT: f32 = 2.0;
 
 /// Meshing threshold
 const THRESHOLD: f32 = 0.0001;
+/// Mandelbox scale factor (negative for classic Mandelbox)
 const SCALE: f32 = -2.4;
+/// Fixed radius for sphere fold
 const FIXED_RADIUS: f32 = 1.0;
+/// Minimum radius for sphere fold (prevents division by zero)
 const MIN_RADIUS: f32 = 0.05;
 
 // ==========================================
 // Names
 // ==========================================
-const SUB_NAME: &str = "MandelbulbStep";
-const MAIN_TREE_NAME: &str = "MandelbulbGeo";
-const MAT_NAME: &str = "MandelbulbMat";
-const COMP_NAME: &str = "MandelbulbComp";
+const SUB_NAME: &str = "MandelboxStep";
+const MAIN_TREE_NAME: &str = "MandelboxGeo";
+const MAT_NAME: &str = "MandelboxMat";
+const COMP_NAME: &str = "MandelboxComp";
 
 //noinspection DuplicatedCode
 fn main() {
