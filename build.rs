@@ -17,6 +17,7 @@ struct NodeSocket {
     #[serde(rename = "type")]
     type_name: String,
     default: Option<serde_json::Value>,
+    is_multi_input: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -174,16 +175,32 @@ fn generate_inputs(
             pub const #const_ident: usize = #i;
         });
 
-        let safe_name = sanitizer.sanitize_and_register(&socket.name, i, "with");
+        let prefix = if socket.is_multi_input {
+            "append"
+        } else {
+            "with"
+        };
+        let safe_name = sanitizer.sanitize_and_register(&socket.name, i, prefix);
         let method_name = format_ident!("{}", safe_name);
         let rust_type = map_blender_type_to_rust(&socket.type_name);
-        methods.push(quote! {
-            pub fn #method_name(self, val: impl Into<crate::core::types::NodeSocket<#rust_type>>) -> Self {
-                let socket = val.into();
-                crate::core::context::update_input(&self.name, #i, socket.python_expr(), socket.is_literal);
-                self
-            }
-        });
+
+        if socket.is_multi_input {
+            methods.push(quote! {
+                pub fn #method_name(self, val: impl Into<crate::core::types::NodeSocket<#rust_type>>) -> Self {
+                    let socket = val.into();
+                    crate::core::context::append_input(&self.name, #i, socket.python_expr(), socket.is_literal);
+                    self
+                }
+            });
+        } else {
+            methods.push(quote! {
+                pub fn #method_name(self, val: impl Into<crate::core::types::NodeSocket<#rust_type>>) -> Self {
+                    let socket = val.into();
+                    crate::core::context::update_input(&self.name, #i, socket.python_expr(), socket.is_literal);
+                    self
+                }
+            });
+        }
     }
 
     (methods, constants)
@@ -359,6 +376,10 @@ fn generate_node_struct(node_id: &str, def: &NodeDef) -> TokenStream {
 
             pub fn set_input<T>(self, index: usize, val: crate::core::types::NodeSocket<T>) -> Self {
                 crate::core::context::update_input(&self.name, index, val.python_expr(), val.is_literal);
+                self
+            }
+            pub fn append_input<T>(self, index: usize, val: crate::core::types::NodeSocket<T>) -> Self {
+                crate::core::context::append_input(&self.name, index, val.python_expr(), val.is_literal);
                 self
             }
         }
