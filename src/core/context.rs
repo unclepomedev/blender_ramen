@@ -13,7 +13,7 @@ pub struct NodeData {
     pub name: String,
     pub bl_idname: String,
     pub properties: HashMap<String, String>,
-    pub inputs: HashMap<usize, InputValue>,
+    pub inputs: HashMap<usize, Vec<InputValue>>,
     pub output_defaults: HashMap<usize, String>,
     pub post_creation_script: String,
     pub custom_links_script: String,
@@ -48,8 +48,10 @@ impl NodeData {
             let _ = writeln!(&mut code, "{}.{} = {}", self.name, k, v);
         }
 
-        for (idx, InputValue { expr, is_literal }) in &self.inputs {
-            if *is_literal {
+        for (idx, inputs_vec) in &self.inputs {
+            if let Some(InputValue { expr, is_literal }) = inputs_vec.first()
+                && *is_literal
+            {
                 let _ = writeln!(
                     &mut code,
                     "{}.inputs[{}].default_value = {}",
@@ -76,13 +78,15 @@ impl NodeData {
         }
 
         let mut code = String::new();
-        for (idx, InputValue { expr, is_literal }) in &self.inputs {
-            if !*is_literal {
-                let _ = writeln!(
-                    &mut code,
-                    "tree.links.new({}, {}.inputs[{}])",
-                    expr, self.name, idx
-                );
+        for (idx, inputs_vec) in &self.inputs {
+            for InputValue { expr, is_literal } in inputs_vec {
+                if !*is_literal {
+                    let _ = writeln!(
+                        &mut code,
+                        "tree.links.new({}, {}.inputs[{}])",
+                        expr, self.name, idx
+                    );
+                }
             }
         }
 
@@ -131,11 +135,26 @@ impl BuildContext {
         if let Some(node) = self.nodes.get_mut(name) {
             node.inputs.insert(
                 index,
-                InputValue {
+                vec![InputValue {
                     expr: val.into(),
                     is_literal,
-                },
+                }],
             );
+        }
+    }
+
+    pub fn append_input(
+        &mut self,
+        name: &str,
+        index: usize,
+        val: impl Into<String>,
+        is_literal: bool,
+    ) {
+        if let Some(node) = self.nodes.get_mut(name) {
+            node.inputs.entry(index).or_default().push(InputValue {
+                expr: val.into(),
+                is_literal,
+            });
         }
     }
 
@@ -218,6 +237,12 @@ pub fn update_input(name: &str, index: usize, val: impl Into<String>, is_literal
         .unwrap()
         .update_input(name, index, val, is_literal);
 }
+pub fn append_input(name: &str, index: usize, val: impl Into<String>, is_literal: bool) {
+    GLOBAL_CONTEXT
+        .lock()
+        .unwrap()
+        .append_input(name, index, val, is_literal);
+}
 pub fn update_output_default(name: &str, index: usize, val: impl Into<String>) {
     GLOBAL_CONTEXT
         .lock()
@@ -230,14 +255,12 @@ pub fn update_post_creation(name: &str, script: impl Into<String>) {
         .unwrap()
         .update_post_creation(name, script);
 }
-
 pub fn append_custom_link(name: &str, script: &str) {
     GLOBAL_CONTEXT
         .lock()
         .unwrap()
         .append_custom_link(name, script);
 }
-
 pub fn enter_zone() {
     GLOBAL_CONTEXT.lock().unwrap().enter_scope();
 }
@@ -269,17 +292,17 @@ mod tests {
             .insert("operation".to_string(), "'ADD'".to_string());
         node.inputs.insert(
             0,
-            InputValue {
+            vec![InputValue {
                 expr: "1.5".to_string(),
                 is_literal: true,
-            },
+            }],
         );
         node.inputs.insert(
             1,
-            InputValue {
+            vec![InputValue {
                 expr: "other_node.outputs['Value']".to_string(),
                 is_literal: false,
-            },
+            }],
         );
         node.output_defaults.insert(0, "0.0".to_string());
 
@@ -298,17 +321,17 @@ mod tests {
 
         node.inputs.insert(
             0,
-            InputValue {
+            vec![InputValue {
                 expr: "1.5".to_string(),
                 is_literal: true,
-            },
+            }],
         );
         node.inputs.insert(
             1,
-            InputValue {
+            vec![InputValue {
                 expr: "other_node.outputs['Value']".to_string(),
                 is_literal: false,
-            },
+            }],
         );
 
         let script = node.links_script();
@@ -326,13 +349,15 @@ mod tests {
 
         ctx.update_property("test_node", "prop1", "100".to_string());
         ctx.update_input("test_node", 2, "200".to_string(), true);
+        ctx.append_input("test_node", 2, "300".to_string(), true);
 
         let root_nodes = ctx.take_root();
         assert_eq!(root_nodes.len(), 1);
 
         let extracted_node = &root_nodes[0];
         assert_eq!(extracted_node.properties.get("prop1").unwrap(), "100");
-        assert_eq!(extracted_node.inputs.get(&2).unwrap().expr, "200");
+        assert_eq!(extracted_node.inputs.get(&2).unwrap()[0].expr, "200");
+        assert_eq!(extracted_node.inputs.get(&2).unwrap()[1].expr, "300");
     }
 
     #[test]

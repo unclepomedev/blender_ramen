@@ -253,16 +253,16 @@ mod tests {
             nodes[0].properties.get("operation").unwrap(),
             "\"SUBTRACT\""
         );
-        assert_eq!(nodes[0].inputs.get(&0).unwrap().expr, a.python_expr());
-        assert_eq!(nodes[0].inputs.get(&1).unwrap().expr, "2.0000");
-        assert!(nodes[0].inputs.get(&0).unwrap().is_literal);
-        assert!(nodes[0].inputs.get(&1).unwrap().is_literal);
+        assert_eq!(nodes[0].inputs.get(&0).unwrap()[0].expr, a.python_expr());
+        assert_eq!(nodes[0].inputs.get(&1).unwrap()[0].expr, "2.0000");
+        assert!(nodes[0].inputs.get(&0).unwrap()[0].is_literal);
+        assert!(nodes[0].inputs.get(&1).unwrap()[0].is_literal);
 
         assert_eq!(nodes[1].properties.get("operation").unwrap(), "\"DIVIDE\"");
-        assert_eq!(nodes[1].inputs.get(&0).unwrap().expr, "100.0000");
-        assert_eq!(nodes[1].inputs.get(&1).unwrap().expr, a.python_expr());
-        assert!(nodes[1].inputs.get(&0).unwrap().is_literal);
-        assert!(nodes[1].inputs.get(&1).unwrap().is_literal);
+        assert_eq!(nodes[1].inputs.get(&0).unwrap()[0].expr, "100.0000");
+        assert_eq!(nodes[1].inputs.get(&1).unwrap()[0].expr, a.python_expr());
+        assert!(nodes[1].inputs.get(&0).unwrap()[0].is_literal);
+        assert!(nodes[1].inputs.get(&1).unwrap()[0].is_literal);
     }
 
     #[test]
@@ -315,13 +315,13 @@ mod tests {
             "\"MULTIPLY\""
         );
         assert_eq!(
-            nodes[0].inputs.get(&1).unwrap().expr,
+            nodes[0].inputs.get(&1).unwrap()[0].expr,
             "(5.0000, 5.0000, 5.0000)"
         );
 
         assert_eq!(nodes[1].properties.get("operation").unwrap(), "\"DIVIDE\"");
         assert_eq!(
-            nodes[1].inputs.get(&0).unwrap().expr,
+            nodes[1].inputs.get(&0).unwrap()[0].expr,
             "(10.0000, 10.0000, 10.0000)"
         );
     }
@@ -344,6 +344,10 @@ mod tests {
             nodes[0].properties.get("operation").unwrap(),
             "\"MULTIPLY\""
         );
+        assert_eq!(nodes[0].inputs.get(&0).unwrap()[0].expr, v.python_expr());
+        assert_eq!(nodes[0].inputs.get(&1).unwrap()[0].expr, f.python_expr());
         assert_eq!(nodes[1].properties.get("operation").unwrap(), "\"DIVIDE\"");
+        assert_eq!(nodes[1].inputs.get(&0).unwrap()[0].expr, f.python_expr());
+        assert_eq!(nodes[1].inputs.get(&1).unwrap()[0].expr, v.python_expr());
     }
 }

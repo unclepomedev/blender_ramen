@@ -79,6 +79,7 @@ def get_socket_info(socket):
         "identifier": str(socket.identifier),
         "type": str(socket.bl_idname),
         "description": str(getattr(socket, "description", "")),
+        "is_multi_input": getattr(socket, "is_multi_input", False),
     }
     if hasattr(socket, "default_value"):
         try:
