@@ -15,26 +15,26 @@ use ramen_macros::ramen_math;
 // Params
 // ==========================================
 
-/// Exponent of the Mandelbulb
-const POWER: f32 = 8.0;
-
-/// Iteration count (detail)
-const ITERATIONS: i32 = 6;
+/// Iteration count
+const ITERATIONS: i32 = 4;
 
 /// VolumeCube resolution
 const RESOLUTION: i32 = 512;
 
 /// Calculation bound
-const BOUND_EXTENT: f32 = 1.2;
+const BOUND_EXTENT: f32 = 2.0;
 
 /// Meshing threshold
-const THRESHOLD: f32 = 0.0;
+const THRESHOLD: f32 = 0.0001;
+const SCALE: f32 = -2.4;
+const FIXED_RADIUS: f32 = 1.0;
+const MIN_RADIUS: f32 = 0.05;
 
 // ==========================================
 // Names
 // ==========================================
-const SUB_NAME: &str = "MandelbulbSDFStep";
-const MAIN_TREE_NAME: &str = "MandelbulbSDFGeo";
+const SUB_NAME: &str = "MandelbulbStep";
+const MAIN_TREE_NAME: &str = "MandelbulbGeo";
 const MAT_NAME: &str = "MandelbulbMat";
 const COMP_NAME: &str = "MandelbulbComp";
 
@@ -47,12 +47,10 @@ fn main() {
         pub const IN_CX: usize = 3;
         pub const IN_CY: usize = 4;
         pub const IN_CZ: usize = 5;
-        pub const IN_DR: usize = 6;
 
         pub const OUT_X: usize = 0;
         pub const OUT_Y: usize = 1;
         pub const OUT_Z: usize = 2;
-        pub const OUT_DR: usize = 3;
     }
     let subtree = NodeTree::new_geometry_group(SUB_NAME)
         .with_input::<Float>("X")
@@ -61,11 +59,9 @@ fn main() {
         .with_input::<Float>("CX")
         .with_input::<Float>("CY")
         .with_input::<Float>("CZ")
-        .with_input::<Float>("DR")
         .with_output::<Float>("OutX")
         .with_output::<Float>("OutY")
         .with_output::<Float>("OutZ")
-        .with_output::<Float>("OutDR")
         .build(|| {
             let group_in = NodeGroupInput::new();
             let x = group_in.socket::<Float>("X");
@@ -74,26 +70,31 @@ fn main() {
             let cx = group_in.socket::<Float>("CX");
             let cy = group_in.socket::<Float>("CY");
             let cz = group_in.socket::<Float>("CZ");
-            let dr = group_in.socket::<Float>("DR");
 
-            let p = NodeSocket::<Float>::from(POWER);
+            let scale = NodeSocket::<Float>::from(SCALE);
+            let fixed_r2 = NodeSocket::<Float>::from(FIXED_RADIUS * FIXED_RADIUS);
+            let min_r2 = NodeSocket::<Float>::from(MIN_RADIUS * MIN_RADIUS);
 
-            let r = ramen_math!(sqrt(pow(x, 2.0) + pow(y, 2.0) + pow(z, 2.0)));
-            let out_dr = ramen_math!(p * pow(r, p - 1.0) * dr + 1.0);
+            // box (clamp) fold
+            let bx = ramen_math!(min(max(x, -1.0), 1.0) * 2.0 - x);
+            let by = ramen_math!(min(max(y, -1.0), 1.0) * 2.0 - y);
+            let bz = ramen_math!(min(max(z, -1.0), 1.0) * 2.0 - z);
 
-            let r_pow = ramen_math!(pow(r, p));
-            let theta_p = ramen_math!(atan2(y, x) * p);
-            let phi_p = ramen_math!(asin(z / (r + 0.000001)) * p);
+            // sphere fold
+            let r2 = ramen_math!(pow(bx, 2.0) + pow(by, 2.0) + pow(bz, 2.0));
+            let fold_mult = ramen_math!(fixed_r2 / min(max(r2, min_r2), fixed_r2));
 
-            let out_x = ramen_math!(r_pow * cos(phi_p) * cos(theta_p) + cx);
-            let out_y = ramen_math!(r_pow * cos(phi_p) * sin(theta_p) + cy);
-            let out_z = ramen_math!(r_pow * sin(phi_p) + cz);
+            // scaling / calculate offset
+            let final_mult = ramen_math!(fold_mult * scale);
+
+            let out_x = ramen_math!(bx * final_mult + cx);
+            let out_y = ramen_math!(by * final_mult + cy);
+            let out_z = ramen_math!(bz * final_mult + cz);
 
             NodeGroupOutput::new()
                 .set_input(sub_sockets::OUT_X, out_x)
                 .set_input(sub_sockets::OUT_Y, out_y)
-                .set_input(sub_sockets::OUT_Z, out_z)
-                .set_input(sub_sockets::OUT_DR, out_dr);
+                .set_input(sub_sockets::OUT_Z, out_z);
         });
 
     BlenderProject::new()
@@ -102,14 +103,13 @@ fn main() {
             let ao = ShaderNodeAmbientOcclusion::new().with_samples(16);
 
             // want the value to be larger the lower the AO
-            let crevice_mask = ramen_math!(pow(1.0 - ao.out_ao(), 3.0) * 20.0);
+            let crevice_mask = ramen_math!(pow(1.0 - ao.out_ao(), 3.0) * 10.0);
 
             // base texture
-            let diffuse = ShaderNodeBsdfDiffuse::new().with_color((0.02, 0.02, 0.03, 1.0)); // dark blue gray
+            let diffuse = ShaderNodeBsdfDiffuse::new().with_color((0.02, 0.01, 0.04, 1.0));
 
-            // cyan light in the valley
             let emission = ShaderNodeEmission::new()
-                .with_color((0.0, 0.8, 1.0, 1.0))
+                .with_color((0.8, 0.1, 1.0, 1.0))
                 .set_input(ShaderNodeEmission::PIN_STRENGTH, crevice_mask);
 
             // additive composition of Diffuse and Emission
@@ -130,33 +130,30 @@ fn main() {
             let cy = sep_pos.out_y();
             let cz = sep_pos.out_z();
 
-            let dr_init = NodeSocket::<Float>::from(1.0_f32);
-            let initial_state = (cur_x, cur_y, cur_z, dr_init);
+            let initial_state = (cur_x, cur_y, cur_z);
 
-            let (final_x, final_y, final_z, final_dr) =
-                repeat_zone(ITERATIONS, initial_state, |(x, y, z, dr)| {
+            let (final_x, final_y, final_z) =
+                repeat_zone(ITERATIONS, initial_state, |(x, y, z)| {
                     let step = call_geometry_group(SUB_NAME)
                         .set_input(sub_sockets::IN_X, x)
                         .set_input(sub_sockets::IN_Y, y)
                         .set_input(sub_sockets::IN_Z, z)
                         .set_input(sub_sockets::IN_CX, cx)
                         .set_input(sub_sockets::IN_CY, cy)
-                        .set_input(sub_sockets::IN_CZ, cz)
-                        .set_input(sub_sockets::IN_DR, dr);
+                        .set_input(sub_sockets::IN_CZ, cz);
 
                     (
                         step.out_socket::<Float>("OutX"),
                         step.out_socket::<Float>("OutY"),
                         step.out_socket::<Float>("OutZ"),
-                        step.out_socket::<Float>("OutDR"),
                     )
                 });
 
             let r_final = ramen_math!(sqrt(
                 pow(final_x, 2.0) + pow(final_y, 2.0) + pow(final_z, 2.0)
             ));
-            let sdf = ramen_math!(0.5 / log(r_final, std::f32::consts::E) * (r_final + 0.000001) / final_dr);
-            let density = ramen_math!(-sdf);
+
+            let density = ramen_math!(6.0 - r_final);
 
             let volume_cube = GeometryNodeVolumeCube::new()
                 .with_resolution_x(RESOLUTION)
@@ -181,6 +178,7 @@ fn main() {
 
             // Glare (Fog Glow)
             let glare = CompositorNodeGlare::new()
+                .with_fade(0.75)
                 .set_input(CompositorNodeGlare::PIN_IMAGE, render_layers.out_image());
 
             // scaling by dispersion
