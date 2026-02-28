@@ -263,54 +263,6 @@ impl_vector2d_scalar_op!(Sub, sub);
 impl_vector2d_scalar_op!(Mul, mul);
 impl_vector2d_scalar_op!(Div, div);
 
-// int ops ---------------------------------------------------------------
-use crate::core::types::Int;
-macro_rules! impl_int_op {
-    ($Trait:ident, $method:ident, $op_enum:expr) => {
-        impl std::ops::$Trait<NodeSocket<Int>> for NodeSocket<Int> {
-            type Output = NodeSocket<Int>;
-            fn $method(self, rhs: NodeSocket<Int>) -> Self::Output {
-                ShaderNodeMath::new()
-                    .with_operation($op_enum)
-                    .set_input(0, self.cast::<Float>())
-                    .set_input(1, rhs.cast::<Float>())
-                    .out_value()
-                    .cast::<Int>()
-            }
-        }
-    };
-}
-
-impl_int_op!(Add, add, ShaderNodeMathOperation::Add);
-impl_int_op!(Sub, sub, ShaderNodeMathOperation::Subtract);
-impl_int_op!(Mul, mul, ShaderNodeMathOperation::Multiply);
-impl_int_op!(Div, div, ShaderNodeMathOperation::Divide);
-
-// op(Int, i32) ---------------------------------------------------------------
-macro_rules! impl_int_scalar_op {
-    ($Trait:ident, $method:ident) => {
-        // Node + i32
-        impl std::ops::$Trait<i32> for NodeSocket<Int> {
-            type Output = NodeSocket<Int>;
-            fn $method(self, rhs: i32) -> Self::Output {
-                self.$method(NodeSocket::<Int>::from(rhs))
-            }
-        }
-        // i32 + Node
-        impl std::ops::$Trait<NodeSocket<Int>> for i32 {
-            type Output = NodeSocket<Int>;
-            fn $method(self, rhs: NodeSocket<Int>) -> Self::Output {
-                NodeSocket::<Int>::from(self).$method(rhs)
-            }
-        }
-    };
-}
-
-impl_int_scalar_op!(Add, add);
-impl_int_scalar_op!(Sub, sub);
-impl_int_scalar_op!(Mul, mul);
-impl_int_scalar_op!(Div, div);
-
 // ----------------------------------------------------------------------------
 // unittest
 // ----------------------------------------------------------------------------
@@ -568,62 +520,5 @@ mod tests {
             nodes[1].inputs.get(&0).unwrap()[0].expr,
             "(10.0000, 10.0000)"
         );
-    }
-
-    #[test]
-    fn test_int_math_operations() {
-        let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
-
-        context::enter_zone();
-        let a = NodeSocket::<Int>::from(10);
-        let b = NodeSocket::<Int>::from(2);
-
-        let _ = a + b;
-        let _ = a - b;
-        let _ = a * b;
-        let _ = a / b;
-
-        let nodes = context::exit_zone();
-        assert_eq!(nodes.len(), 4);
-
-        for node in &nodes {
-            assert_eq!(node.bl_idname, "ShaderNodeMath"); // Should use Float math internally
-        }
-
-        assert_eq!(nodes[0].properties.get("operation").unwrap(), "\"ADD\"");
-        assert_eq!(
-            nodes[1].properties.get("operation").unwrap(),
-            "\"SUBTRACT\""
-        );
-        assert_eq!(
-            nodes[2].properties.get("operation").unwrap(),
-            "\"MULTIPLY\""
-        );
-        assert_eq!(nodes[3].properties.get("operation").unwrap(), "\"DIVIDE\"");
-    }
-
-    #[test]
-    fn test_int_scalar_operations() {
-        let _lock = GLOBAL_TEST_LOCK.lock().unwrap();
-
-        context::enter_zone();
-        let a = NodeSocket::<Int>::from(5);
-
-        let _ = a - 2;
-        let _ = 100 / a;
-
-        let nodes = context::exit_zone();
-        assert_eq!(nodes.len(), 2);
-
-        assert_eq!(
-            nodes[0].properties.get("operation").unwrap(),
-            "\"SUBTRACT\""
-        );
-        assert_eq!(nodes[0].inputs.get(&0).unwrap()[0].expr, a.python_expr());
-        assert_eq!(nodes[0].inputs.get(&1).unwrap()[0].expr, "2"); // Check if scalar formatting is correct
-
-        assert_eq!(nodes[1].properties.get("operation").unwrap(), "\"DIVIDE\"");
-        assert_eq!(nodes[1].inputs.get(&0).unwrap()[0].expr, "100");
-        assert_eq!(nodes[1].inputs.get(&1).unwrap()[0].expr, a.python_expr());
     }
 }
