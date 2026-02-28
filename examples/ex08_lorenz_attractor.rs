@@ -2,8 +2,8 @@ use blender_ramen::core::nodes::{
     CompositorNodeAlphaOver, CompositorNodeGlare, CompositorNodeLensdist, CompositorNodeRLayers,
     CompositorNodeRgb, CompositorNodeViewer, GeometryNodeCurvePrimitiveCircle,
     GeometryNodeCurvePrimitiveLine, GeometryNodeCurveToMesh, GeometryNodeJoinGeometry,
-    GeometryNodeMeshLine, GeometryNodeSetMaterial, GeometryNodeTransform, NodeGroupOutput,
-    ShaderNodeCombineXyz, ShaderNodeEmission, ShaderNodeOutputMaterial, ShaderNodeSeparateXyz,
+    GeometryNodeSetMaterial, GeometryNodeTransform, NodeGroupOutput, ShaderNodeCombineXyz,
+    ShaderNodeEmission, ShaderNodeOutputMaterial, ShaderNodeSeparateXyz,
 };
 use blender_ramen::core::project::BlenderProject;
 use blender_ramen::core::types::{Geo, NodeSocket, Vector};
@@ -52,7 +52,11 @@ fn main() {
         })
         .add_geometry_tree(GEO_NAME, || {
             let initial_pos = NodeSocket::<Vector>::from(INITIAL_POS);
-            let initial_geo = GeometryNodeMeshLine::new().with_count(0).out_mesh();
+            let initial_geo = GeometryNodeCurvePrimitiveLine::new()
+                .with_start(NodeSocket::<Vector>::from(INITIAL_POS))
+                .with_end(NodeSocket::<Vector>::from(INITIAL_POS))
+                .out_curve()
+                .cast::<Geo>();
 
             // Lorenz Attractor creation loop
             let (_final_pos, final_geo) =
