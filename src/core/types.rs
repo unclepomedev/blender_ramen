@@ -20,6 +20,7 @@ pub struct Menu;
 pub struct Bundle;
 pub struct Any;
 
+// helpers ===============================================================================
 pub fn python_string_literal(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
     out.push('"');
@@ -58,6 +59,8 @@ struct ExprArena {
     exprs: Vec<String>,
     ids: HashMap<String, usize>,
 }
+
+// common ===============================================================================
 static EXPR_ARENA: LazyLock<Mutex<ExprArena>> = LazyLock::new(|| Mutex::new(ExprArena::default()));
 
 fn intern_expr(expr: String) -> usize {
@@ -121,6 +124,8 @@ impl<T> NodeSocket<T> {
     }
 }
 
+// float ===============================================================================
+
 impl From<f32> for NodeSocket<Float> {
     fn from(v: f32) -> Self {
         Self::new_literal(fmt_f32(v))
@@ -140,6 +145,7 @@ macro_rules! impl_from_int_for_float_socket {
 }
 impl_from_int_for_float_socket!(i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
 
+// int ===============================================================================
 macro_rules! impl_from_int_for_int_socket {
     ($($t:ty),*) => {
         $(
@@ -152,12 +158,15 @@ macro_rules! impl_from_int_for_int_socket {
     };
 }
 impl_from_int_for_int_socket!(i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
+
+// bool ===============================================================================
 impl From<bool> for NodeSocket<Bool> {
     fn from(v: bool) -> Self {
         Self::new_literal(if v { "True" } else { "False" })
     }
 }
 
+// string ===============================================================================
 impl From<&str> for NodeSocket<StringType> {
     fn from(s: &str) -> Self {
         Self::new_literal(python_string_literal(s))
@@ -170,6 +179,19 @@ impl From<String> for NodeSocket<StringType> {
     }
 }
 
+impl From<&str> for NodeSocket<Menu> {
+    fn from(s: &str) -> Self {
+        Self::new_literal(python_string_literal(s))
+    }
+}
+
+impl From<String> for NodeSocket<Menu> {
+    fn from(s: String) -> Self {
+        Self::new_literal(python_string_literal(&s))
+    }
+}
+
+// vector like ========================================================================
 impl From<(f32, f32)> for NodeSocket<Vector2D> {
     fn from(v: (f32, f32)) -> Self {
         Self::new_literal(format!("({}, {})", fmt_f32(v.0), fmt_f32(v.1)))
@@ -188,13 +210,13 @@ impl From<(f32, f32, f32)> for NodeSocket<Vector> {
 }
 
 impl From<(f32, f32, f32, f32)> for NodeSocket<Vector4D> {
-    fn from(c: (f32, f32, f32, f32)) -> Self {
+    fn from(v: (f32, f32, f32, f32)) -> Self {
         Self::new_literal(format!(
             "({}, {}, {}, {})",
-            fmt_f32(c.0),
-            fmt_f32(c.1),
-            fmt_f32(c.2),
-            fmt_f32(c.3)
+            fmt_f32(v.0),
+            fmt_f32(v.1),
+            fmt_f32(v.2),
+            fmt_f32(v.3)
         ))
     }
 }
@@ -223,6 +245,18 @@ impl From<NodeSocket<Color>> for NodeSocket<Vector> {
     }
 }
 
+impl From<(f32, f32, f32)> for NodeSocket<Rotation> {
+    fn from(v: (f32, f32, f32)) -> Self {
+        Self::new_literal(format!(
+            "({}, {}, {})",
+            fmt_f32(v.0),
+            fmt_f32(v.1),
+            fmt_f32(v.2)
+        ))
+    }
+}
+
+// reference =======================================================================
 impl From<&str> for NodeSocket<Material> {
     fn from(mat_name: &str) -> Self {
         Self::new_literal(format!(
@@ -238,75 +272,56 @@ impl From<String> for NodeSocket<Material> {
     }
 }
 
-impl From<&str> for NodeSocket<Menu> {
-    fn from(s: &str) -> Self {
-        Self::new_literal(python_string_literal(s))
-    }
-}
-
-impl From<String> for NodeSocket<Menu> {
-    fn from(s: String) -> Self {
-        Self::new_literal(python_string_literal(&s))
-    }
-}
-
-impl From<(f32, f32, f32)> for NodeSocket<Rotation> {
-    fn from(v: (f32, f32, f32)) -> Self {
+impl From<&str> for NodeSocket<Object> {
+    fn from(name: &str) -> Self {
         Self::new_literal(format!(
-            "({}, {}, {})",
-            fmt_f32(v.0),
-            fmt_f32(v.1),
-            fmt_f32(v.2)
+            "bpy.data.objects.get({})",
+            python_string_literal(name)
         ))
     }
 }
 
+impl From<String> for NodeSocket<Object> {
+    fn from(name: String) -> Self {
+        NodeSocket::<Object>::from(name.as_str())
+    }
+}
+
+impl From<&str> for NodeSocket<Collection> {
+    fn from(name: &str) -> Self {
+        Self::new_literal(format!(
+            "bpy.data.collections.get({})",
+            python_string_literal(name)
+        ))
+    }
+}
+
+impl From<String> for NodeSocket<Collection> {
+    fn from(name: String) -> Self {
+        NodeSocket::<Collection>::from(name.as_str())
+    }
+}
+
+impl From<&str> for NodeSocket<Image> {
+    fn from(name: &str) -> Self {
+        Self::new_literal(format!(
+            "bpy.data.images.get({})",
+            python_string_literal(name)
+        ))
+    }
+}
+
+impl From<String> for NodeSocket<Image> {
+    fn from(name: String) -> Self {
+        NodeSocket::<Image>::from(name.as_str())
+    }
+}
+
+// socket def ===============================================================================
 pub trait SocketDef {
     fn socket_type() -> &'static str;
     fn default_name() -> &'static str;
     fn blender_socket_type() -> &'static str;
-}
-
-pub trait NodeGroupInputExt {
-    fn socket<T>(&self, name: &str) -> NodeSocket<T>;
-}
-
-impl NodeGroupInputExt for crate::core::nodes::NodeGroupInput {
-    fn socket<T>(&self, name: &str) -> NodeSocket<T> {
-        NodeSocket::new_output(format!(
-            "{}.outputs[{}]",
-            self.name,
-            python_string_literal(name)
-        ))
-    }
-}
-
-pub trait GeometryNodeGroupExt {
-    fn out_socket<T>(&self, name: &str) -> NodeSocket<T>;
-}
-
-impl GeometryNodeGroupExt for crate::core::nodes::GeometryNodeGroup {
-    fn out_socket<T>(&self, name: &str) -> NodeSocket<T> {
-        NodeSocket::new_output(format!(
-            "{}.outputs[{}]",
-            self.name,
-            python_string_literal(name)
-        ))
-    }
-}
-
-pub trait ShaderNodeGroupExt {
-    fn out_socket<T>(&self, name: &str) -> NodeSocket<T>;
-}
-
-impl ShaderNodeGroupExt for crate::core::nodes::ShaderNodeGroup {
-    fn out_socket<T>(&self, name: &str) -> NodeSocket<T> {
-        NodeSocket::new_output(format!(
-            "{}.outputs[{}]",
-            self.name,
-            python_string_literal(name)
-        ))
-    }
 }
 
 macro_rules! impl_socket_def {
@@ -349,6 +364,50 @@ impl_socket_def!(Rotation, "ROTATION", "Rotation", "NodeSocketRotation");
 impl_socket_def!(Menu, "MENU", "Menu", "NodeSocketMenu");
 impl_socket_def!(Bundle, "BUNDLE", "Bundle", "NodeSocketBundle");
 
+// extensions ==========================================================================
+pub trait NodeGroupInputExt {
+    fn socket<T>(&self, name: &str) -> NodeSocket<T>;
+}
+
+impl NodeGroupInputExt for crate::core::nodes::NodeGroupInput {
+    fn socket<T>(&self, name: &str) -> NodeSocket<T> {
+        NodeSocket::new_output(format!(
+            "{}.outputs[{}]",
+            self.name,
+            python_string_literal(name)
+        ))
+    }
+}
+
+pub trait GeometryNodeGroupExt {
+    fn out_socket<T>(&self, name: &str) -> NodeSocket<T>;
+}
+
+impl GeometryNodeGroupExt for crate::core::nodes::GeometryNodeGroup {
+    fn out_socket<T>(&self, name: &str) -> NodeSocket<T> {
+        NodeSocket::new_output(format!(
+            "{}.outputs[{}]",
+            self.name,
+            python_string_literal(name)
+        ))
+    }
+}
+
+pub trait ShaderNodeGroupExt {
+    fn out_socket<T>(&self, name: &str) -> NodeSocket<T>;
+}
+
+impl ShaderNodeGroupExt for crate::core::nodes::ShaderNodeGroup {
+    fn out_socket<T>(&self, name: &str) -> NodeSocket<T> {
+        NodeSocket::new_output(format!(
+            "{}.outputs[{}]",
+            self.name,
+            python_string_literal(name)
+        ))
+    }
+}
+
+// any ===============================================================================
 macro_rules! impl_into_any {
     ($($t:ty),*) => {
         $(
