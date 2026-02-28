@@ -27,7 +27,7 @@ with open(out_path, "w") as f:
     f.write("=== Input Socket Types ===\n")
     for t in sorted(input_types):
         f.write(f"  {t}\n")
-    f.write(f"\n=== Output Socket Types ===\n")
+    f.write("\n=== Output Socket Types ===\n")
     for t in sorted(output_types):
         f.write(f"  {t}\n")
 

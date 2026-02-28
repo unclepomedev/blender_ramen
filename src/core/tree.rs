@@ -111,10 +111,15 @@ impl NodeTree {
                 || self.tree_type == TreeType::CompositorGroup,
             "with_input_default can only be used on Group Node Trees!"
         );
+        let socket = default_val.into();
+        assert!(
+            socket.is_literal,
+            "with_input_default expects a literal value, not a linked socket expression"
+        );
         self.inputs.push(TreeInput {
             name: name.to_string(),
             blender_type: S::blender_socket_type().to_string(),
-            default_expr: Some(default_val.into().python_expr()),
+            default_expr: Some(socket.python_expr()),
         });
         self
     }

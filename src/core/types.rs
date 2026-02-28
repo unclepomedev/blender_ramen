@@ -345,7 +345,7 @@ impl_socket_def!(Float, "FLOAT", "Value", "NodeSocketFloat");
 impl_socket_def!(Int, "INT", "Value", "NodeSocketInt");
 impl_socket_def!(Vector2D, "VECTOR2D", "Vector", "NodeSocketVector2D");
 impl_socket_def!(Vector, "VECTOR", "Vector", "NodeSocketVector");
-impl_socket_def!(Vector4D, "VECTOR4D", "Vector", "NodeSocketVector4D");
+impl_socket_def!(Vector4D, "VECTOR4D", "Vector", "NodeSocketVectorVelocity4D");
 impl_socket_def!(Color, "RGBA", "Color", "NodeSocketColor");
 impl_socket_def!(Bool, "BOOLEAN", "Boolean", "NodeSocketBool");
 impl_socket_def!(StringType, "STRING", "String", "NodeSocketString");
