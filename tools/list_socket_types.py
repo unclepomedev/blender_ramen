@@ -21,6 +21,9 @@ for category in data.values():
 
 out_path = Path(__file__).parent / "socket_types.txt"
 with open(out_path, "w") as f:
+    # input_types.update(output_types)  # for enum generation
+    # for t in sorted(input_types):
+    #     f.write(f"    {t},\n")
     f.write("=== Input Socket Types ===\n")
     for t in sorted(input_types):
         f.write(f"  {t}\n")

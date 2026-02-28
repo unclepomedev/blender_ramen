@@ -3,7 +3,9 @@
 pub struct Geo;
 pub struct Float;
 pub struct Int;
+pub struct Vector2D;
 pub struct Vector;
+pub struct Vector4D;
 pub struct Color;
 pub struct StringType;
 pub struct Bool;
@@ -11,6 +13,11 @@ pub struct Material;
 pub struct Object;
 pub struct Collection;
 pub struct Image;
+pub struct Shader;
+pub struct Matrix;
+pub struct Rotation;
+pub struct Menu;
+pub struct Bundle;
 pub struct Any;
 
 pub fn python_string_literal(s: &str) -> String {
@@ -163,6 +170,12 @@ impl From<String> for NodeSocket<StringType> {
     }
 }
 
+impl From<(f32, f32)> for NodeSocket<Vector2D> {
+    fn from(v: (f32, f32)) -> Self {
+        Self::new_literal(format!("({}, {})", fmt_f32(v.0), fmt_f32(v.1)))
+    }
+}
+
 impl From<(f32, f32, f32)> for NodeSocket<Vector> {
     fn from(v: (f32, f32, f32)) -> Self {
         Self::new_literal(format!(
@@ -170,6 +183,18 @@ impl From<(f32, f32, f32)> for NodeSocket<Vector> {
             fmt_f32(v.0),
             fmt_f32(v.1),
             fmt_f32(v.2)
+        ))
+    }
+}
+
+impl From<(f32, f32, f32, f32)> for NodeSocket<Vector4D> {
+    fn from(c: (f32, f32, f32, f32)) -> Self {
+        Self::new_literal(format!(
+            "({}, {}, {}, {})",
+            fmt_f32(c.0),
+            fmt_f32(c.1),
+            fmt_f32(c.2),
+            fmt_f32(c.3)
         ))
     }
 }
@@ -210,6 +235,29 @@ impl From<&str> for NodeSocket<Material> {
 impl From<String> for NodeSocket<Material> {
     fn from(mat_name: String) -> Self {
         NodeSocket::<Material>::from(mat_name.as_str())
+    }
+}
+
+impl From<&str> for NodeSocket<Menu> {
+    fn from(s: &str) -> Self {
+        Self::new_literal(python_string_literal(s))
+    }
+}
+
+impl From<String> for NodeSocket<Menu> {
+    fn from(s: String) -> Self {
+        Self::new_literal(python_string_literal(&s))
+    }
+}
+
+impl From<(f32, f32, f32)> for NodeSocket<Rotation> {
+    fn from(v: (f32, f32, f32)) -> Self {
+        Self::new_literal(format!(
+            "({}, {}, {})",
+            fmt_f32(v.0),
+            fmt_f32(v.1),
+            fmt_f32(v.2)
+        ))
     }
 }
 
@@ -280,7 +328,9 @@ macro_rules! impl_socket_def {
 impl_socket_def!(Geo, "GEOMETRY", "Geometry", "NodeSocketGeometry");
 impl_socket_def!(Float, "FLOAT", "Value", "NodeSocketFloat");
 impl_socket_def!(Int, "INT", "Value", "NodeSocketInt");
+impl_socket_def!(Vector2D, "VECTOR2D", "Vector", "NodeSocketVector2D");
 impl_socket_def!(Vector, "VECTOR", "Vector", "NodeSocketVector");
+impl_socket_def!(Vector4D, "VECTOR4D", "Vector", "NodeSocketVector4D");
 impl_socket_def!(Color, "RGBA", "Color", "NodeSocketColor");
 impl_socket_def!(Bool, "BOOLEAN", "Boolean", "NodeSocketBool");
 impl_socket_def!(StringType, "STRING", "String", "NodeSocketString");
@@ -293,6 +343,11 @@ impl_socket_def!(
     "NodeSocketCollection"
 );
 impl_socket_def!(Image, "IMAGE", "Image", "NodeSocketImage");
+impl_socket_def!(Shader, "SHADER", "Shader", "NodeSocketShader");
+impl_socket_def!(Matrix, "MATRIX", "Matrix", "NodeSocketMatrix");
+impl_socket_def!(Rotation, "ROTATION", "Rotation", "NodeSocketRotation");
+impl_socket_def!(Menu, "MENU", "Menu", "NodeSocketMenu");
+impl_socket_def!(Bundle, "BUNDLE", "Bundle", "NodeSocketBundle");
 
 macro_rules! impl_into_any {
     ($($t:ty),*) => {
@@ -307,7 +362,8 @@ macro_rules! impl_into_any {
 }
 
 impl_into_any!(
-    Geo, Float, Int, Vector, Color, StringType, Bool, Material, Object, Collection, Image
+    Geo, Float, Int, Vector2D, Vector, Vector4D, Color, StringType, Bool, Material, Object,
+    Collection, Image, Shader, Matrix, Rotation, Menu, Bundle
 );
 
 // ---------------------------------------------------------
@@ -360,6 +416,15 @@ mod tests {
 
         let c = NodeSocket::<Color>::from((1.0, 0.0, 0.0, 1.0));
         assert_eq!(c.python_expr(), "(1.0000, 0.0000, 0.0000, 1.0000)");
+
+        let v2 = NodeSocket::<Vector2D>::from((1.0, 0.4));
+        assert_eq!(v2.python_expr(), "(1.0000, 0.4000)");
+
+        let rot = NodeSocket::<Rotation>::from((0.0, 1.57, 0.0));
+        assert_eq!(rot.python_expr(), "(0.0000, 1.5700, 0.0000)");
+
+        let menu = NodeSocket::<Menu>::from("LINEAR");
+        assert_eq!(menu.python_expr(), "\"LINEAR\"");
     }
 
     #[test]
