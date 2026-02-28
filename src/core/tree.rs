@@ -12,11 +12,22 @@ pub enum TreeType {
     CompositorGroup,
 }
 
+pub struct TreeInput {
+    pub name: String,
+    pub blender_type: String,
+    pub default_expr: Option<String>,
+}
+
+pub struct TreeOutput {
+    pub name: String,
+    pub blender_type: String,
+}
+
 pub struct NodeTree {
     name: String,
     tree_type: TreeType,
-    inputs: Vec<(String, String)>,
-    outputs: Vec<(String, String)>,
+    inputs: Vec<TreeInput>,
+    outputs: Vec<TreeOutput>,
 }
 
 impl NodeTree {
@@ -81,8 +92,30 @@ impl NodeTree {
                 || self.tree_type == TreeType::CompositorGroup,
             "with_input can only be used on Group Node Trees!"
         );
-        self.inputs
-            .push((name.to_string(), S::blender_socket_type().to_string()));
+        self.inputs.push(TreeInput {
+            name: name.to_string(),
+            blender_type: S::blender_socket_type().to_string(),
+            default_expr: None,
+        });
+        self
+    }
+
+    pub fn with_input_default<S: SocketDef>(
+        mut self,
+        name: &str,
+        default_val: impl Into<crate::core::types::NodeSocket<S>>,
+    ) -> Self {
+        assert!(
+            self.tree_type == TreeType::GeometryGroup
+                || self.tree_type == TreeType::ShaderGroup
+                || self.tree_type == TreeType::CompositorGroup,
+            "with_input_default can only be used on Group Node Trees!"
+        );
+        self.inputs.push(TreeInput {
+            name: name.to_string(),
+            blender_type: S::blender_socket_type().to_string(),
+            default_expr: Some(default_val.into().python_expr()),
+        });
         self
     }
 
@@ -93,8 +126,10 @@ impl NodeTree {
                 || self.tree_type == TreeType::CompositorGroup,
             "with_output can only be used on Group Node Trees!"
         );
-        self.outputs
-            .push((name.to_string(), S::blender_socket_type().to_string()));
+        self.outputs.push(TreeOutput {
+            name: name.to_string(),
+            blender_type: S::blender_socket_type().to_string(),
+        });
         self
     }
 
@@ -183,20 +218,24 @@ tree.interface.new_socket('Alpha', in_out='OUTPUT', socket_type='NodeSocketFloat
     }
 
     fn append_sockets(&self, code: &mut String) {
-        for (name, s_type) in &self.inputs {
-            let safe_name = python_string_literal(name);
+        for input in &self.inputs {
+            let safe_name = python_string_literal(&input.name);
             let _ = writeln!(
                 code,
-                "tree.interface.new_socket({}, in_out='INPUT', socket_type='{}')",
-                safe_name, s_type
+                "sock = tree.interface.new_socket({}, in_out='INPUT', socket_type='{}')",
+                safe_name, input.blender_type
             );
+
+            if let Some(expr) = &input.default_expr {
+                let _ = writeln!(code, "sock.default_value = {}", expr);
+            }
         }
-        for (name, s_type) in &self.outputs {
-            let safe_name = python_string_literal(name);
+        for output in &self.outputs {
+            let safe_name = python_string_literal(&output.name);
             let _ = writeln!(
                 code,
                 "tree.interface.new_socket({}, in_out='OUTPUT', socket_type='{}')",
-                safe_name, s_type
+                safe_name, output.blender_type
             );
         }
     }
