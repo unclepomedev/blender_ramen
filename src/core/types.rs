@@ -260,7 +260,7 @@ impl From<(f32, f32, f32)> for NodeSocket<Rotation> {
 impl From<&str> for NodeSocket<Material> {
     fn from(mat_name: &str) -> Self {
         Self::new_literal(format!(
-            "bpy.data.materials[{}]",
+            "bpy.data.materials.get({})",
             python_string_literal(mat_name)
         ))
     }
@@ -502,7 +502,7 @@ mod tests {
         assert_eq!(obj.python_expr(), "bpy.data.objects.get(\"TargetCube\")");
 
         let mat = NodeSocket::<Material>::from("NeonMat");
-        assert_eq!(mat.python_expr(), "bpy.data.materials[\"NeonMat\"]");
+        assert_eq!(mat.python_expr(), "bpy.data.materials.get(\"NeonMat\")");
 
         let col = NodeSocket::<Collection>::from("Environment");
         assert_eq!(

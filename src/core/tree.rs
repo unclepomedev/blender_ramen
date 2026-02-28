@@ -12,12 +12,14 @@ pub enum TreeType {
     CompositorGroup,
 }
 
+#[derive(Debug, Clone)]
 pub struct TreeInput {
     pub name: String,
     pub blender_type: String,
     pub default_expr: Option<String>,
 }
 
+#[derive(Debug, Clone)]
 pub struct TreeOutput {
     pub name: String,
     pub blender_type: String,
