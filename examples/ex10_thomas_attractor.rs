@@ -40,7 +40,7 @@ const LENS_DISPERSION: f32 = 0.05;
 // ==========================================
 // Names
 // ==========================================
-const GEO_NAME: &str = "AizawaAttractorGeo";
+const GEO_NAME: &str = "ThomasAttractorGeo";
 const MAT_NEON: &str = "HologramMat";
 const COMP_NAME: &str = "CinematicComp";
 const POS_ATTR_NAME: &str = "PosAttr";
