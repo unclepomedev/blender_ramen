@@ -257,65 +257,32 @@ impl From<(f32, f32, f32)> for NodeSocket<Rotation> {
 }
 
 // reference =======================================================================
-impl From<&str> for NodeSocket<Material> {
-    fn from(mat_name: &str) -> Self {
-        Self::new_literal(format!(
-            "bpy.data.materials.get({})",
-            python_string_literal(mat_name)
-        ))
-    }
+fn bpy_data_get_expr(domain: &str, name: &str) -> String {
+    format!("bpy.data.{}.get({})", domain, python_string_literal(name))
 }
 
-impl From<String> for NodeSocket<Material> {
-    fn from(mat_name: String) -> Self {
-        NodeSocket::<Material>::from(mat_name.as_str())
-    }
+macro_rules! impl_string_socket_from {
+    ($ty:ty, $expr:expr) => {
+        impl From<&str> for NodeSocket<$ty> {
+            fn from(name: &str) -> Self {
+                Self::new_literal($expr(name))
+            }
+        }
+        impl From<String> for NodeSocket<$ty> {
+            fn from(name: String) -> Self {
+                NodeSocket::<$ty>::from(name.as_str())
+            }
+        }
+    };
 }
 
-impl From<&str> for NodeSocket<Object> {
-    fn from(name: &str) -> Self {
-        Self::new_literal(format!(
-            "bpy.data.objects.get({})",
-            python_string_literal(name)
-        ))
-    }
-}
-
-impl From<String> for NodeSocket<Object> {
-    fn from(name: String) -> Self {
-        NodeSocket::<Object>::from(name.as_str())
-    }
-}
-
-impl From<&str> for NodeSocket<Collection> {
-    fn from(name: &str) -> Self {
-        Self::new_literal(format!(
-            "bpy.data.collections.get({})",
-            python_string_literal(name)
-        ))
-    }
-}
-
-impl From<String> for NodeSocket<Collection> {
-    fn from(name: String) -> Self {
-        NodeSocket::<Collection>::from(name.as_str())
-    }
-}
-
-impl From<&str> for NodeSocket<Image> {
-    fn from(name: &str) -> Self {
-        Self::new_literal(format!(
-            "bpy.data.images.get({})",
-            python_string_literal(name)
-        ))
-    }
-}
-
-impl From<String> for NodeSocket<Image> {
-    fn from(name: String) -> Self {
-        NodeSocket::<Image>::from(name.as_str())
-    }
-}
+impl_string_socket_from!(Material, |name: &str| bpy_data_get_expr("materials", name));
+impl_string_socket_from!(Object, |name: &str| bpy_data_get_expr("objects", name));
+impl_string_socket_from!(Collection, |name: &str| bpy_data_get_expr(
+    "collections",
+    name
+));
+impl_string_socket_from!(Image, |name: &str| bpy_data_get_expr("images", name));
 
 // socket def ===============================================================================
 pub trait SocketDef {

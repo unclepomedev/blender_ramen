@@ -106,8 +106,8 @@ macro_rules! impl_vector_float_op {
             fn $method(self, rhs: NodeSocket<Float>) -> Self::Output {
                 ShaderNodeVectorMath::new()
                     .with_operation($op_enum)
-                    .set_input(0, self)
-                    .set_input(1, rhs)
+                    .set_input(ShaderNodeVectorMath::PIN_VECTOR, self)
+                    .set_input(ShaderNodeVectorMath::PIN_VECTOR_0, rhs)
                     .out_vector()
             }
         }
@@ -117,8 +117,8 @@ macro_rules! impl_vector_float_op {
             fn $method(self, rhs: NodeSocket<Vector>) -> Self::Output {
                 ShaderNodeVectorMath::new()
                     .with_operation($op_enum)
-                    .set_input(0, self)
-                    .set_input(1, rhs)
+                    .set_input(ShaderNodeVectorMath::PIN_VECTOR, self)
+                    .set_input(ShaderNodeVectorMath::PIN_VECTOR_0, rhs)
                     .out_vector()
             }
         }
