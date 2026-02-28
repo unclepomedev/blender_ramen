@@ -1,9 +1,11 @@
 use blender_ramen::core::nodes::{
     CompositorNodeAlphaOver, CompositorNodeGlare, CompositorNodeLensdist, CompositorNodeRLayers,
     CompositorNodeRgb, CompositorNodeViewer, GeometryNodeCurvePrimitiveCircle,
-    GeometryNodeCurvePrimitiveLine, GeometryNodeCurveToMesh, GeometryNodeJoinGeometry,
-    GeometryNodeSetMaterial, GeometryNodeTransform, NodeGroupOutput, ShaderNodeCombineXyz,
-    ShaderNodeEmission, ShaderNodeOutputMaterial, ShaderNodeSeparateXyz,
+    GeometryNodeCurvePrimitiveLine, GeometryNodeCurveToMesh, GeometryNodeInputPosition,
+    GeometryNodeJoinGeometry, GeometryNodeSetMaterial, GeometryNodeStoreNamedAttribute,
+    GeometryNodeStoreNamedAttributeDataType, GeometryNodeTransform, NodeGroupOutput,
+    ShaderNodeAttribute, ShaderNodeCombineXyz, ShaderNodeEmission, ShaderNodeOutputMaterial,
+    ShaderNodeSeparateXyz,
 };
 use blender_ramen::core::project::BlenderProject;
 use blender_ramen::core::types::{Geo, NodeSocket, Vector};
@@ -13,22 +15,24 @@ use ramen_macros::ramen_math;
 // ==========================================
 // Params (Math)
 // ==========================================
-const ITERATIONS: i32 = 20000;
-const DT: f32 = 0.005;
-const P: f32 = 10.0;
-const R: f32 = 28.0;
-const B: f32 = 2.6666;
+const ITERATIONS: i32 = 50000;
+const DT: f32 = 0.01;
+const A: f32 = 0.95;
+const B: f32 = 0.7;
+const C: f32 = 0.6;
+const D: f32 = 3.5;
+const E: f32 = 0.25;
+const F: f32 = 0.1;
 const INITIAL_POS: (f32, f32, f32) = (0.1, 0.0, 0.0);
 
 // ==========================================
 // Params (Design)
 // ==========================================
-const WIRE_RADIUS: f32 = 0.04;
+const WIRE_RADIUS: f32 = 0.008;
 const WIRE_RESOLUTION: i32 = 6;
-const NEON_COLOR: (f32, f32, f32, f32) = (0.0, 0.8, 1.0, 1.0);
-const NEON_STRENGTH: f32 = 15.0;
-const TRANSFORM_SCALE: f32 = 0.15;
-const TRANSFORM_Z_OFFSET: f32 = -3.5;
+const NEON_STRENGTH: f32 = 5.0;
+const TRANSFORM_SCALE: f32 = 3.0;
+const TRANSFORM_Z_OFFSET: f32 = -1.5;
 
 // Compositor
 const GLARE_FADE: f32 = 0.8;
@@ -38,17 +42,36 @@ const LENS_DISPERSION: f32 = 0.04;
 // ==========================================
 // Names
 // ==========================================
-const GEO_NAME: &str = "LorenzAttractorGeo";
+const GEO_NAME: &str = "AizawaAttractorGeo";
 const MAT_NEON: &str = "NeonMat";
-const COMP_NAME: &str = "LorenzComp";
+const COMP_NAME: &str = "AizawaComp";
+const POS_ATTR_NAME: &str = "PosAttr";
 
 //noinspection DuplicatedCode
 fn main() {
     BlenderProject::new()
         .add_shader_tree(MAT_NEON, || {
+            let attr = ShaderNodeAttribute::new().with_attribute_name(POS_ATTR_NAME);
+            let sep = ShaderNodeSeparateXyz::new().with_vector(attr.out_vector());
+
+            let x = sep.out_x();
+            let y = sep.out_y();
+            let z = sep.out_z();
+
+            let r = ramen_math!(z * 0.8 + 0.2);
+            let g = ramen_math!(abs(x) * 1.5);
+            let b = ramen_math!(1.0 - abs(y));
+
+            let color = ShaderNodeCombineXyz::new()
+                .with_x(r)
+                .with_y(g)
+                .with_z(b)
+                .out_vector();
+
             let emission = ShaderNodeEmission::new()
-                .with_color(NEON_COLOR)
+                .set_input(ShaderNodeEmission::PIN_COLOR, color)
                 .with_strength(NEON_STRENGTH);
+
             ShaderNodeOutputMaterial::new().with_surface(emission.out_emission());
         })
         .add_geometry_tree(GEO_NAME, || {
@@ -59,7 +82,7 @@ fn main() {
                 .out_curve()
                 .cast::<Geo>();
 
-            // Lorenz Attractor creation loop
+            // Aizawa Attractor creation loop
             let (_final_pos, final_geo) =
                 repeat_zone(ITERATIONS, (initial_pos, initial_geo), |(pos, geo)| {
                     let sep = ShaderNodeSeparateXyz::new().with_vector(pos);
@@ -67,9 +90,15 @@ fn main() {
                     let y = sep.out_y();
                     let z = sep.out_z();
 
-                    let dx = ramen_math!((P * (y - x)) * DT);
-                    let dy = ramen_math!((x * (R - z) - y) * DT);
-                    let dz = ramen_math!((x * y - B * z) * DT);
+                    let dx = ramen_math!(((z - B) * x - D * y) * DT);
+                    let dy = ramen_math!((D * x + (z - B) * y) * DT);
+                    let dz = ramen_math!(
+                        (C + A * z
+                            - pow(z, 3.0) / 3.0
+                            - (pow(x, 2.0) + pow(y, 2.0)) * (1.0 + E * z)
+                            + F * z * pow(x, 3.0))
+                            * DT
+                    );
 
                     let delta = ShaderNodeCombineXyz::new()
                         .with_x(dx)
@@ -103,8 +132,17 @@ fn main() {
                 .with_geometry(mesh.out_mesh())
                 .with_material(MAT_NEON);
 
-            let transform = GeometryNodeTransform::new()
+            let store_pos = GeometryNodeStoreNamedAttribute::new()
                 .with_geometry(with_mat.out_geometry())
+                .with_name(POS_ATTR_NAME)
+                .with_data_type(GeometryNodeStoreNamedAttributeDataType::FloatVector)
+                .set_input(
+                    GeometryNodeStoreNamedAttribute::PIN_VALUE,
+                    GeometryNodeInputPosition::new().out_position(),
+                );
+
+            let transform = GeometryNodeTransform::new()
+                .with_geometry(store_pos.out_geometry())
                 .with_scale(NodeSocket::<Vector>::from((
                     TRANSFORM_SCALE,
                     TRANSFORM_SCALE,
