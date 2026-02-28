@@ -116,18 +116,13 @@ fn map_blender_type_to_rust(socket_type: &str) -> TokenStream {
         | "NodeSocketFloatDistance"
         | "NodeSocketFloatFactor"
         | "NodeSocketFloatAngle"
-        | "NodeSocketFloatTime"
-        | "NodeSocketFloatUnsigned" => quote! { crate::core::types::Float },
+        | "NodeSocketFloatTimeAbsolute" => quote! { crate::core::types::Float },
         "NodeSocketInt"
-        | "NodeSocketIntFactor"
-        | "NodeSocketIntUnsigned"
-        | "NodeSocketIntPercentage"
-        | "NodeSocketIntCircle" => quote! { crate::core::types::Int },
+        | "NodeSocketIntUnsigned" => quote! { crate::core::types::Int },
         "NodeSocketVector"
         | "NodeSocketVectorTranslation"
         | "NodeSocketVectorDirection"
-        | "NodeSocketVectorVelocity"
-        | "NodeSocketVectorAcceleration"
+        | "NodeSocketVectorVelocity4D"
         | "NodeSocketVectorEuler"
         | "NodeSocketVectorXYZ"
         | "NodeSocketVectorXYZ2D" => quote! { crate::core::types::Vector },
@@ -138,7 +133,6 @@ fn map_blender_type_to_rust(socket_type: &str) -> TokenStream {
         "NodeSocketObject" => quote! { crate::core::types::Object },
         "NodeSocketCollection" => quote! { crate::core::types::Collection },
         "NodeSocketImage" => quote! { crate::core::types::Image },
-        "NodeSocketTexture" => quote! { crate::core::types::Texture },
         _ => quote! { crate::core::types::Any },
     }
 }

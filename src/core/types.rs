@@ -11,7 +11,6 @@ pub struct Material;
 pub struct Object;
 pub struct Collection;
 pub struct Image;
-pub struct Texture;
 pub struct Any;
 
 pub fn python_string_literal(s: &str) -> String {
@@ -294,7 +293,6 @@ impl_socket_def!(
     "NodeSocketCollection"
 );
 impl_socket_def!(Image, "IMAGE", "Image", "NodeSocketImage");
-impl_socket_def!(Texture, "TEXTURE", "Texture", "NodeSocketTexture");
 
 macro_rules! impl_into_any {
     ($($t:ty),*) => {
@@ -309,7 +307,7 @@ macro_rules! impl_into_any {
 }
 
 impl_into_any!(
-    Geo, Float, Int, Vector, Color, StringType, Bool, Material, Object, Collection, Image, Texture
+    Geo, Float, Int, Vector, Color, StringType, Bool, Material, Object, Collection, Image
 );
 
 // ---------------------------------------------------------
