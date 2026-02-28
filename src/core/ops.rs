@@ -180,6 +180,89 @@ impl_vector_scalar_op!(Sub, sub);
 impl_vector_scalar_op!(Mul, mul);
 impl_vector_scalar_op!(Div, div);
 
+// op(Vector2D, Vector2D)-----------------------------------------------------------------
+use crate::core::types::Vector2D;
+macro_rules! impl_vector2d_op {
+    ($Trait:ident, $method:ident, $op_enum:expr) => {
+        impl std::ops::$Trait<NodeSocket<Vector2D>> for NodeSocket<Vector2D> {
+            type Output = NodeSocket<Vector2D>;
+            fn $method(self, rhs: NodeSocket<Vector2D>) -> Self::Output {
+                ShaderNodeVectorMath::new()
+                    .with_operation($op_enum)
+                    .set_input(ShaderNodeVectorMath::PIN_VECTOR, self)
+                    .set_input(ShaderNodeVectorMath::PIN_VECTOR_0, rhs)
+                    .out_vector()
+                    .cast::<Vector2D>()  // downcast
+            }
+        }
+    };
+}
+
+impl_vector2d_op!(Add, add, ShaderNodeVectorMathOperation::Add);
+impl_vector2d_op!(Sub, sub, ShaderNodeVectorMathOperation::Subtract);
+impl_vector2d_op!(Mul, mul, ShaderNodeVectorMathOperation::Multiply);
+impl_vector2d_op!(Div, div, ShaderNodeVectorMathOperation::Divide);
+
+// op(Vector2D, Float) --------------------------------------------------------
+macro_rules! impl_vector2d_float_op {
+    ($Trait:ident, $method:ident, $op_enum:expr) => {
+        // Vector2D + Float
+        impl std::ops::$Trait<NodeSocket<Float>> for NodeSocket<Vector2D> {
+            type Output = NodeSocket<Vector2D>;
+            fn $method(self, rhs: NodeSocket<Float>) -> Self::Output {
+                ShaderNodeVectorMath::new()
+                    .with_operation($op_enum)
+                    .set_input(ShaderNodeVectorMath::PIN_VECTOR, self)
+                    .set_input(ShaderNodeVectorMath::PIN_VECTOR_0, rhs)
+                    .out_vector()
+                    .cast::<Vector2D>()
+            }
+        }
+        // Float + Vector2D
+        impl std::ops::$Trait<NodeSocket<Vector2D>> for NodeSocket<Float> {
+            type Output = NodeSocket<Vector2D>;
+            fn $method(self, rhs: NodeSocket<Vector2D>) -> Self::Output {
+                ShaderNodeVectorMath::new()
+                    .with_operation($op_enum)
+                    .set_input(ShaderNodeVectorMath::PIN_VECTOR, self)
+                    .set_input(ShaderNodeVectorMath::PIN_VECTOR_0, rhs)
+                    .out_vector()
+                    .cast::<Vector2D>()
+            }
+        }
+    };
+}
+
+impl_vector2d_float_op!(Add, add, ShaderNodeVectorMathOperation::Add);
+impl_vector2d_float_op!(Sub, sub, ShaderNodeVectorMathOperation::Subtract);
+impl_vector2d_float_op!(Mul, mul, ShaderNodeVectorMathOperation::Multiply);
+impl_vector2d_float_op!(Div, div, ShaderNodeVectorMathOperation::Divide);
+
+// op(Vector2D, f32) ---------------------------------------------------------------
+macro_rules! impl_vector2d_scalar_op {
+    ($Trait:ident, $method:ident) => {
+        // Vector2D op f32
+        impl std::ops::$Trait<f32> for NodeSocket<Vector2D> {
+            type Output = NodeSocket<Vector2D>;
+            fn $method(self, rhs: f32) -> Self::Output {
+                self.$method(NodeSocket::<Vector2D>::from((rhs, rhs)))
+            }
+        }
+        // f32 op Vector2D
+        impl std::ops::$Trait<NodeSocket<Vector2D>> for f32 {
+            type Output = NodeSocket<Vector2D>;
+            fn $method(self, rhs: NodeSocket<Vector2D>) -> Self::Output {
+                NodeSocket::<Vector2D>::from((self, self)).$method(rhs)
+            }
+        }
+    };
+}
+
+impl_vector2d_scalar_op!(Add, add);
+impl_vector2d_scalar_op!(Sub, sub);
+impl_vector2d_scalar_op!(Mul, mul);
+impl_vector2d_scalar_op!(Div, div);
+
 // ----------------------------------------------------------------------------
 // unittest
 // ----------------------------------------------------------------------------
