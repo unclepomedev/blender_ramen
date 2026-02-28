@@ -3,7 +3,9 @@
 pub struct Geo;
 pub struct Float;
 pub struct Int;
+pub struct Vector2D;
 pub struct Vector;
+pub struct Vector4D;
 pub struct Color;
 pub struct StringType;
 pub struct Bool;
@@ -11,9 +13,14 @@ pub struct Material;
 pub struct Object;
 pub struct Collection;
 pub struct Image;
-pub struct Texture;
+pub struct Shader;
+pub struct Matrix;
+pub struct Rotation;
+pub struct Menu;
+pub struct Bundle;
 pub struct Any;
 
+// helpers ===============================================================================
 pub fn python_string_literal(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
     out.push('"');
@@ -52,6 +59,8 @@ struct ExprArena {
     exprs: Vec<String>,
     ids: HashMap<String, usize>,
 }
+
+// common ===============================================================================
 static EXPR_ARENA: LazyLock<Mutex<ExprArena>> = LazyLock::new(|| Mutex::new(ExprArena::default()));
 
 fn intern_expr(expr: String) -> usize {
@@ -115,6 +124,8 @@ impl<T> NodeSocket<T> {
     }
 }
 
+// float ===============================================================================
+
 impl From<f32> for NodeSocket<Float> {
     fn from(v: f32) -> Self {
         Self::new_literal(fmt_f32(v))
@@ -134,6 +145,7 @@ macro_rules! impl_from_int_for_float_socket {
 }
 impl_from_int_for_float_socket!(i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
 
+// int ===============================================================================
 macro_rules! impl_from_int_for_int_socket {
     ($($t:ty),*) => {
         $(
@@ -146,12 +158,15 @@ macro_rules! impl_from_int_for_int_socket {
     };
 }
 impl_from_int_for_int_socket!(i8, i16, i32, i64, isize, u8, u16, u32, u64, usize);
+
+// bool ===============================================================================
 impl From<bool> for NodeSocket<Bool> {
     fn from(v: bool) -> Self {
         Self::new_literal(if v { "True" } else { "False" })
     }
 }
 
+// string ===============================================================================
 impl From<&str> for NodeSocket<StringType> {
     fn from(s: &str) -> Self {
         Self::new_literal(python_string_literal(s))
@@ -164,6 +179,25 @@ impl From<String> for NodeSocket<StringType> {
     }
 }
 
+impl From<&str> for NodeSocket<Menu> {
+    fn from(s: &str) -> Self {
+        Self::new_literal(python_string_literal(s))
+    }
+}
+
+impl From<String> for NodeSocket<Menu> {
+    fn from(s: String) -> Self {
+        Self::new_literal(python_string_literal(&s))
+    }
+}
+
+// vector like ========================================================================
+impl From<(f32, f32)> for NodeSocket<Vector2D> {
+    fn from(v: (f32, f32)) -> Self {
+        Self::new_literal(format!("({}, {})", fmt_f32(v.0), fmt_f32(v.1)))
+    }
+}
+
 impl From<(f32, f32, f32)> for NodeSocket<Vector> {
     fn from(v: (f32, f32, f32)) -> Self {
         Self::new_literal(format!(
@@ -171,6 +205,18 @@ impl From<(f32, f32, f32)> for NodeSocket<Vector> {
             fmt_f32(v.0),
             fmt_f32(v.1),
             fmt_f32(v.2)
+        ))
+    }
+}
+
+impl From<(f32, f32, f32, f32)> for NodeSocket<Vector4D> {
+    fn from(v: (f32, f32, f32, f32)) -> Self {
+        Self::new_literal(format!(
+            "({}, {}, {}, {})",
+            fmt_f32(v.0),
+            fmt_f32(v.1),
+            fmt_f32(v.2),
+            fmt_f32(v.3)
         ))
     }
 }
@@ -199,10 +245,22 @@ impl From<NodeSocket<Color>> for NodeSocket<Vector> {
     }
 }
 
+impl From<(f32, f32, f32)> for NodeSocket<Rotation> {
+    fn from(v: (f32, f32, f32)) -> Self {
+        Self::new_literal(format!(
+            "({}, {}, {})",
+            fmt_f32(v.0),
+            fmt_f32(v.1),
+            fmt_f32(v.2)
+        ))
+    }
+}
+
+// reference =======================================================================
 impl From<&str> for NodeSocket<Material> {
     fn from(mat_name: &str) -> Self {
         Self::new_literal(format!(
-            "bpy.data.materials[{}]",
+            "bpy.data.materials.get({})",
             python_string_literal(mat_name)
         ))
     }
@@ -214,12 +272,99 @@ impl From<String> for NodeSocket<Material> {
     }
 }
 
+impl From<&str> for NodeSocket<Object> {
+    fn from(name: &str) -> Self {
+        Self::new_literal(format!(
+            "bpy.data.objects.get({})",
+            python_string_literal(name)
+        ))
+    }
+}
+
+impl From<String> for NodeSocket<Object> {
+    fn from(name: String) -> Self {
+        NodeSocket::<Object>::from(name.as_str())
+    }
+}
+
+impl From<&str> for NodeSocket<Collection> {
+    fn from(name: &str) -> Self {
+        Self::new_literal(format!(
+            "bpy.data.collections.get({})",
+            python_string_literal(name)
+        ))
+    }
+}
+
+impl From<String> for NodeSocket<Collection> {
+    fn from(name: String) -> Self {
+        NodeSocket::<Collection>::from(name.as_str())
+    }
+}
+
+impl From<&str> for NodeSocket<Image> {
+    fn from(name: &str) -> Self {
+        Self::new_literal(format!(
+            "bpy.data.images.get({})",
+            python_string_literal(name)
+        ))
+    }
+}
+
+impl From<String> for NodeSocket<Image> {
+    fn from(name: String) -> Self {
+        NodeSocket::<Image>::from(name.as_str())
+    }
+}
+
+// socket def ===============================================================================
 pub trait SocketDef {
     fn socket_type() -> &'static str;
     fn default_name() -> &'static str;
     fn blender_socket_type() -> &'static str;
 }
 
+macro_rules! impl_socket_def {
+    ($type:ident, $sock_type:expr, $def_name:expr, $blender_sock:expr) => {
+        impl SocketDef for $type {
+            fn socket_type() -> &'static str {
+                $sock_type
+            }
+            fn default_name() -> &'static str {
+                $def_name
+            }
+            fn blender_socket_type() -> &'static str {
+                $blender_sock
+            }
+        }
+    };
+}
+
+impl_socket_def!(Geo, "GEOMETRY", "Geometry", "NodeSocketGeometry");
+impl_socket_def!(Float, "FLOAT", "Value", "NodeSocketFloat");
+impl_socket_def!(Int, "INT", "Value", "NodeSocketInt");
+impl_socket_def!(Vector2D, "VECTOR2D", "Vector", "NodeSocketVector2D");
+impl_socket_def!(Vector, "VECTOR", "Vector", "NodeSocketVector");
+impl_socket_def!(Vector4D, "VECTOR4D", "Vector", "NodeSocketVectorVelocity4D");
+impl_socket_def!(Color, "RGBA", "Color", "NodeSocketColor");
+impl_socket_def!(Bool, "BOOLEAN", "Boolean", "NodeSocketBool");
+impl_socket_def!(StringType, "STRING", "String", "NodeSocketString");
+impl_socket_def!(Material, "MATERIAL", "Material", "NodeSocketMaterial");
+impl_socket_def!(Object, "OBJECT", "Object", "NodeSocketObject");
+impl_socket_def!(
+    Collection,
+    "COLLECTION",
+    "Collection",
+    "NodeSocketCollection"
+);
+impl_socket_def!(Image, "IMAGE", "Image", "NodeSocketImage");
+impl_socket_def!(Shader, "SHADER", "Shader", "NodeSocketShader");
+impl_socket_def!(Matrix, "MATRIX", "Matrix", "NodeSocketMatrix");
+impl_socket_def!(Rotation, "ROTATION", "Rotation", "NodeSocketRotation");
+impl_socket_def!(Menu, "MENU", "Menu", "NodeSocketMenu");
+impl_socket_def!(Bundle, "BUNDLE", "Bundle", "NodeSocketBundle");
+
+// extensions ==========================================================================
 pub trait NodeGroupInputExt {
     fn socket<T>(&self, name: &str) -> NodeSocket<T>;
 }
@@ -262,40 +407,7 @@ impl ShaderNodeGroupExt for crate::core::nodes::ShaderNodeGroup {
     }
 }
 
-macro_rules! impl_socket_def {
-    ($type:ident, $sock_type:expr, $def_name:expr, $blender_sock:expr) => {
-        impl SocketDef for $type {
-            fn socket_type() -> &'static str {
-                $sock_type
-            }
-            fn default_name() -> &'static str {
-                $def_name
-            }
-            fn blender_socket_type() -> &'static str {
-                $blender_sock
-            }
-        }
-    };
-}
-
-impl_socket_def!(Geo, "GEOMETRY", "Geometry", "NodeSocketGeometry");
-impl_socket_def!(Float, "FLOAT", "Value", "NodeSocketFloat");
-impl_socket_def!(Int, "INT", "Value", "NodeSocketInt");
-impl_socket_def!(Vector, "VECTOR", "Vector", "NodeSocketVector");
-impl_socket_def!(Color, "RGBA", "Color", "NodeSocketColor");
-impl_socket_def!(Bool, "BOOLEAN", "Boolean", "NodeSocketBool");
-impl_socket_def!(StringType, "STRING", "String", "NodeSocketString");
-impl_socket_def!(Material, "MATERIAL", "Material", "NodeSocketMaterial");
-impl_socket_def!(Object, "OBJECT", "Object", "NodeSocketObject");
-impl_socket_def!(
-    Collection,
-    "COLLECTION",
-    "Collection",
-    "NodeSocketCollection"
-);
-impl_socket_def!(Image, "IMAGE", "Image", "NodeSocketImage");
-impl_socket_def!(Texture, "TEXTURE", "Texture", "NodeSocketTexture");
-
+// any ===============================================================================
 macro_rules! impl_into_any {
     ($($t:ty),*) => {
         $(
@@ -309,7 +421,8 @@ macro_rules! impl_into_any {
 }
 
 impl_into_any!(
-    Geo, Float, Int, Vector, Color, StringType, Bool, Material, Object, Collection, Image, Texture
+    Geo, Float, Int, Vector2D, Vector, Vector4D, Color, StringType, Bool, Material, Object,
+    Collection, Image, Shader, Matrix, Rotation, Menu, Bundle
 );
 
 // ---------------------------------------------------------
@@ -362,6 +475,15 @@ mod tests {
 
         let c = NodeSocket::<Color>::from((1.0, 0.0, 0.0, 1.0));
         assert_eq!(c.python_expr(), "(1.0000, 0.0000, 0.0000, 1.0000)");
+
+        let v2 = NodeSocket::<Vector2D>::from((1.0, 0.4));
+        assert_eq!(v2.python_expr(), "(1.0000, 0.4000)");
+
+        let rot = NodeSocket::<Rotation>::from((0.0, 1.57, 0.0));
+        assert_eq!(rot.python_expr(), "(0.0000, 1.5700, 0.0000)");
+
+        let menu = NodeSocket::<Menu>::from("LINEAR");
+        assert_eq!(menu.python_expr(), "\"LINEAR\"");
     }
 
     #[test]
@@ -372,5 +494,23 @@ mod tests {
 
         let any: NodeSocket<Any> = color.into();
         assert_eq!(any.python_expr(), "some_node.outputs[0]");
+    }
+
+    #[test]
+    fn test_reference_types() {
+        let obj = NodeSocket::<Object>::from("TargetCube");
+        assert_eq!(obj.python_expr(), "bpy.data.objects.get(\"TargetCube\")");
+
+        let mat = NodeSocket::<Material>::from("NeonMat");
+        assert_eq!(mat.python_expr(), "bpy.data.materials.get(\"NeonMat\")");
+
+        let col = NodeSocket::<Collection>::from("Environment");
+        assert_eq!(
+            col.python_expr(),
+            "bpy.data.collections.get(\"Environment\")"
+        );
+
+        let img = NodeSocket::<Image>::from("Noise.png");
+        assert_eq!(img.python_expr(), "bpy.data.images.get(\"Noise.png\")");
     }
 }

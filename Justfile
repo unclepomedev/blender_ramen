@@ -1,10 +1,12 @@
 # python ==========================================================
 fmt-py:
-    uv run ruff format dump_nodes.py tests/ server.py
+    uv run ruff format dump_nodes.py tests/ server.py tools/
 
 test-py:
     uv run pytest
 
+debug-socket-type:
+    uv run tools/list_socket_types.py
 # rust ==========================================================
 fix-rs:
     cargo clippy --fix --allow-dirty --allow-staged --all-targets -- -D warnings
@@ -24,7 +26,7 @@ build:
     RAMEN_DEBUG_NODES=1 cargo build
 
 # boot ===========================================================
-blender:
+blend:
     echo "🍜 Starting Blender with Live Link Server..."
     blup run -- --python server.py
 

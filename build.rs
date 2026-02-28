@@ -8,6 +8,44 @@ use std::fs;
 use std::path::Path;
 
 // structs to parse json --------------------------------------------------------------------------
+#[derive(Deserialize, Debug, PartialEq, Eq, Hash)]
+pub enum BlenderSocketType {
+    NodeSocketBool,
+    NodeSocketBundle,
+    NodeSocketClosure,
+    NodeSocketCollection,
+    NodeSocketColor,
+    NodeSocketFloat,
+    NodeSocketFloatAngle,
+    NodeSocketFloatColorTemperature,
+    NodeSocketFloatDistance,
+    NodeSocketFloatFactor,
+    NodeSocketFloatTimeAbsolute,
+    NodeSocketFloatWavelength,
+    NodeSocketGeometry,
+    NodeSocketImage,
+    NodeSocketInt,
+    NodeSocketIntUnsigned,
+    NodeSocketMaterial,
+    NodeSocketMatrix,
+    NodeSocketMenu,
+    NodeSocketObject,
+    NodeSocketRotation,
+    NodeSocketShader,
+    NodeSocketString,
+    NodeSocketStringFilePath,
+    NodeSocketVector,
+    NodeSocketVector2D,
+    NodeSocketVectorDirection,
+    NodeSocketVectorEuler,
+    NodeSocketVectorFactor,
+    NodeSocketVectorFactor2D,
+    NodeSocketVectorTranslation,
+    NodeSocketVectorVelocity4D,
+    NodeSocketVectorXYZ,
+    NodeSocketVectorXYZ2D,
+    NodeSocketVirtual,
+}
 
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)]
@@ -15,7 +53,7 @@ struct NodeSocket {
     name: String,
     identifier: String,
     #[serde(rename = "type")]
-    type_name: String,
+    type_name: BlenderSocketType,
     default: Option<serde_json::Value>,
     is_multi_input: bool,
 }
@@ -109,37 +147,46 @@ impl NameSanitizer {
 
 // type mapping -----------------------------------------------------------------------
 
-fn map_blender_type_to_rust(socket_type: &str) -> TokenStream {
+fn map_blender_type_to_rust(socket_type: &BlenderSocketType) -> TokenStream {
     match socket_type {
-        "NodeSocketGeometry" => quote! { crate::core::types::Geo },
-        "NodeSocketFloat"
-        | "NodeSocketFloatDistance"
-        | "NodeSocketFloatFactor"
-        | "NodeSocketFloatAngle"
-        | "NodeSocketFloatTime"
-        | "NodeSocketFloatUnsigned" => quote! { crate::core::types::Float },
-        "NodeSocketInt"
-        | "NodeSocketIntFactor"
-        | "NodeSocketIntUnsigned"
-        | "NodeSocketIntPercentage"
-        | "NodeSocketIntCircle" => quote! { crate::core::types::Int },
-        "NodeSocketVector"
-        | "NodeSocketVectorTranslation"
-        | "NodeSocketVectorDirection"
-        | "NodeSocketVectorVelocity"
-        | "NodeSocketVectorAcceleration"
-        | "NodeSocketVectorEuler"
-        | "NodeSocketVectorXYZ"
-        | "NodeSocketVectorXYZ2D" => quote! { crate::core::types::Vector },
-        "NodeSocketColor" => quote! { crate::core::types::Color },
-        "NodeSocketBool" => quote! { crate::core::types::Bool },
-        "NodeSocketString" => quote! { crate::core::types::StringType },
-        "NodeSocketMaterial" => quote! { crate::core::types::Material },
-        "NodeSocketObject" => quote! { crate::core::types::Object },
-        "NodeSocketCollection" => quote! { crate::core::types::Collection },
-        "NodeSocketImage" => quote! { crate::core::types::Image },
-        "NodeSocketTexture" => quote! { crate::core::types::Texture },
-        _ => quote! { crate::core::types::Any },
+        BlenderSocketType::NodeSocketGeometry => quote! { crate::core::types::Geo },
+        BlenderSocketType::NodeSocketFloat
+        | BlenderSocketType::NodeSocketFloatDistance
+        | BlenderSocketType::NodeSocketFloatFactor
+        | BlenderSocketType::NodeSocketFloatAngle
+        | BlenderSocketType::NodeSocketFloatTimeAbsolute
+        | BlenderSocketType::NodeSocketFloatColorTemperature
+        | BlenderSocketType::NodeSocketFloatWavelength => quote! { crate::core::types::Float },
+        BlenderSocketType::NodeSocketInt | BlenderSocketType::NodeSocketIntUnsigned => {
+            quote! { crate::core::types::Int }
+        }
+        BlenderSocketType::NodeSocketVector
+        | BlenderSocketType::NodeSocketVectorTranslation
+        | BlenderSocketType::NodeSocketVectorDirection
+        | BlenderSocketType::NodeSocketVectorXYZ
+        | BlenderSocketType::NodeSocketVectorFactor
+        | BlenderSocketType::NodeSocketVectorEuler => quote! { crate::core::types::Vector },
+        BlenderSocketType::NodeSocketVector2D
+        | BlenderSocketType::NodeSocketVectorFactor2D
+        | BlenderSocketType::NodeSocketVectorXYZ2D => quote! { crate::core::types::Vector2D },
+        BlenderSocketType::NodeSocketVectorVelocity4D => quote! { crate::core::types::Vector4D },
+        BlenderSocketType::NodeSocketColor => quote! { crate::core::types::Color },
+        BlenderSocketType::NodeSocketBool => quote! { crate::core::types::Bool },
+        BlenderSocketType::NodeSocketMaterial => quote! { crate::core::types::Material },
+        BlenderSocketType::NodeSocketObject => quote! { crate::core::types::Object },
+        BlenderSocketType::NodeSocketCollection => quote! { crate::core::types::Collection },
+        BlenderSocketType::NodeSocketImage => quote! { crate::core::types::Image },
+        BlenderSocketType::NodeSocketString | BlenderSocketType::NodeSocketStringFilePath => {
+            quote! { crate::core::types::StringType }
+        }
+        BlenderSocketType::NodeSocketShader | BlenderSocketType::NodeSocketClosure => {
+            quote! { crate::core::types::Shader }
+        }
+        BlenderSocketType::NodeSocketMatrix => quote! { crate::core::types::Matrix },
+        BlenderSocketType::NodeSocketRotation => quote! { crate::core::types::Rotation },
+        BlenderSocketType::NodeSocketMenu => quote! { crate::core::types::Menu },
+        BlenderSocketType::NodeSocketBundle => quote! { crate::core::types::Bundle },
+        BlenderSocketType::NodeSocketVirtual => quote! { crate::core::types::Any }, // seems amorphous
     }
 }
 

@@ -3,3 +3,4 @@
 blender_nodes_dump.json
 .blender_stubs
 __pycache__
+socket_types.txt

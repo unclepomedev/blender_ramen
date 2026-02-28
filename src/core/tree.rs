@@ -12,11 +12,24 @@ pub enum TreeType {
     CompositorGroup,
 }
 
+#[derive(Debug, Clone)]
+pub struct TreeInput {
+    pub name: String,
+    pub blender_type: String,
+    pub default_expr: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TreeOutput {
+    pub name: String,
+    pub blender_type: String,
+}
+
 pub struct NodeTree {
     name: String,
     tree_type: TreeType,
-    inputs: Vec<(String, String)>,
-    outputs: Vec<(String, String)>,
+    inputs: Vec<TreeInput>,
+    outputs: Vec<TreeOutput>,
 }
 
 impl NodeTree {
@@ -81,8 +94,35 @@ impl NodeTree {
                 || self.tree_type == TreeType::CompositorGroup,
             "with_input can only be used on Group Node Trees!"
         );
-        self.inputs
-            .push((name.to_string(), S::blender_socket_type().to_string()));
+        self.inputs.push(TreeInput {
+            name: name.to_string(),
+            blender_type: S::blender_socket_type().to_string(),
+            default_expr: None,
+        });
+        self
+    }
+
+    pub fn with_input_default<S: SocketDef>(
+        mut self,
+        name: &str,
+        default_val: impl Into<crate::core::types::NodeSocket<S>>,
+    ) -> Self {
+        assert!(
+            self.tree_type == TreeType::GeometryGroup
+                || self.tree_type == TreeType::ShaderGroup
+                || self.tree_type == TreeType::CompositorGroup,
+            "with_input_default can only be used on Group Node Trees!"
+        );
+        let socket = default_val.into();
+        assert!(
+            socket.is_literal,
+            "with_input_default expects a literal value, not a linked socket expression"
+        );
+        self.inputs.push(TreeInput {
+            name: name.to_string(),
+            blender_type: S::blender_socket_type().to_string(),
+            default_expr: Some(socket.python_expr()),
+        });
         self
     }
 
@@ -93,8 +133,10 @@ impl NodeTree {
                 || self.tree_type == TreeType::CompositorGroup,
             "with_output can only be used on Group Node Trees!"
         );
-        self.outputs
-            .push((name.to_string(), S::blender_socket_type().to_string()));
+        self.outputs.push(TreeOutput {
+            name: name.to_string(),
+            blender_type: S::blender_socket_type().to_string(),
+        });
         self
     }
 
@@ -183,20 +225,24 @@ tree.interface.new_socket('Alpha', in_out='OUTPUT', socket_type='NodeSocketFloat
     }
 
     fn append_sockets(&self, code: &mut String) {
-        for (name, s_type) in &self.inputs {
-            let safe_name = python_string_literal(name);
+        for input in &self.inputs {
+            let safe_name = python_string_literal(&input.name);
             let _ = writeln!(
                 code,
-                "tree.interface.new_socket({}, in_out='INPUT', socket_type='{}')",
-                safe_name, s_type
+                "sock = tree.interface.new_socket({}, in_out='INPUT', socket_type='{}')",
+                safe_name, input.blender_type
             );
+
+            if let Some(expr) = &input.default_expr {
+                let _ = writeln!(code, "sock.default_value = {}", expr);
+            }
         }
-        for (name, s_type) in &self.outputs {
-            let safe_name = python_string_literal(name);
+        for output in &self.outputs {
+            let safe_name = python_string_literal(&output.name);
             let _ = writeln!(
                 code,
                 "tree.interface.new_socket({}, in_out='OUTPUT', socket_type='{}')",
-                safe_name, s_type
+                safe_name, output.blender_type
             );
         }
     }
@@ -292,4 +338,62 @@ pub fn call_shader_group(group_name: &str) -> crate::core::nodes::ShaderNodeGrou
         ),
     );
     node
+}
+
+// ---------------------------------------------------------
+// unittest
+// ---------------------------------------------------------
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::types::{Float, Geo, Object};
+
+    #[test]
+    fn test_tree_io_definitions() {
+        let tree = NodeTree::new_geometry_group("TestGroup")
+            .with_input::<Float>("Scale")
+            .with_input_default::<Object>("Target", "Cube")
+            .with_output::<Geo>("OutGeo");
+
+        assert_eq!(tree.inputs.len(), 2);
+        assert_eq!(tree.outputs.len(), 1);
+
+        assert_eq!(tree.inputs[0].name, "Scale");
+        assert_eq!(tree.inputs[0].blender_type, "NodeSocketFloat");
+        assert_eq!(tree.inputs[0].default_expr, None);
+
+        assert_eq!(tree.inputs[1].name, "Target");
+        assert_eq!(tree.inputs[1].blender_type, "NodeSocketObject");
+        assert_eq!(
+            tree.inputs[1].default_expr.as_deref(),
+            Some("bpy.data.objects.get(\"Cube\")")
+        );
+
+        assert_eq!(tree.outputs[0].name, "OutGeo");
+        assert_eq!(tree.outputs[0].blender_type, "NodeSocketGeometry");
+    }
+
+    #[test]
+    fn test_append_sockets_script() {
+        let tree = NodeTree::new_geometry_group("ScriptGroup")
+            .with_input_default::<Float>("Threshold", 0.75)
+            .with_output::<Geo>("Geometry");
+
+        let mut code = String::new();
+        tree.append_sockets(&mut code);
+
+        assert!(
+            code.contains("sock = tree.interface.new_socket(\"Threshold\", in_out='INPUT', socket_type='NodeSocketFloat')"),
+            "Input socket creation script is missing or incorrect."
+        );
+        assert!(
+            code.contains("sock.default_value = 0.7500"),
+            "Default value assignment script is missing or incorrect."
+        );
+
+        assert!(
+            code.contains("tree.interface.new_socket(\"Geometry\", in_out='OUTPUT', socket_type='NodeSocketGeometry')"),
+            "Output socket creation script is missing or incorrect."
+        );
+    }
 }
