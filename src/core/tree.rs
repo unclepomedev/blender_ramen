@@ -332,3 +332,61 @@ pub fn call_shader_group(group_name: &str) -> crate::core::nodes::ShaderNodeGrou
     );
     node
 }
+
+// ---------------------------------------------------------
+// unittest
+// ---------------------------------------------------------
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::types::{Float, Geo, Object};
+
+    #[test]
+    fn test_tree_io_definitions() {
+        let tree = NodeTree::new_geometry_group("TestGroup")
+            .with_input::<Float>("Scale")
+            .with_input_default::<Object>("Target", "Cube")
+            .with_output::<Geo>("OutGeo");
+
+        assert_eq!(tree.inputs.len(), 2);
+        assert_eq!(tree.outputs.len(), 1);
+
+        assert_eq!(tree.inputs[0].name, "Scale");
+        assert_eq!(tree.inputs[0].blender_type, "NodeSocketFloat");
+        assert_eq!(tree.inputs[0].default_expr, None);
+
+        assert_eq!(tree.inputs[1].name, "Target");
+        assert_eq!(tree.inputs[1].blender_type, "NodeSocketObject");
+        assert_eq!(
+            tree.inputs[1].default_expr.as_deref(),
+            Some("bpy.data.objects.get(\"Cube\")")
+        );
+
+        assert_eq!(tree.outputs[0].name, "OutGeo");
+        assert_eq!(tree.outputs[0].blender_type, "NodeSocketGeometry");
+    }
+
+    #[test]
+    fn test_append_sockets_script() {
+        let tree = NodeTree::new_geometry_group("ScriptGroup")
+            .with_input_default::<Float>("Threshold", 0.75)
+            .with_output::<Geo>("Geometry");
+
+        let mut code = String::new();
+        tree.append_sockets(&mut code);
+
+        assert!(
+            code.contains("sock = tree.interface.new_socket(\"Threshold\", in_out='INPUT', socket_type='NodeSocketFloat')"),
+            "Input socket creation script is missing or incorrect."
+        );
+        assert!(
+            code.contains("sock.default_value = 0.7500"),
+            "Default value assignment script is missing or incorrect."
+        );
+
+        assert!(
+            code.contains("tree.interface.new_socket(\"Geometry\", in_out='OUTPUT', socket_type='NodeSocketGeometry')"),
+            "Output socket creation script is missing or incorrect."
+        );
+    }
+}

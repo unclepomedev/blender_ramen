@@ -495,4 +495,22 @@ mod tests {
         let any: NodeSocket<Any> = color.into();
         assert_eq!(any.python_expr(), "some_node.outputs[0]");
     }
+
+    #[test]
+    fn test_reference_types() {
+        let obj = NodeSocket::<Object>::from("TargetCube");
+        assert_eq!(obj.python_expr(), "bpy.data.objects.get(\"TargetCube\")");
+
+        let mat = NodeSocket::<Material>::from("NeonMat");
+        assert_eq!(mat.python_expr(), "bpy.data.materials[\"NeonMat\"]");
+
+        let col = NodeSocket::<Collection>::from("Environment");
+        assert_eq!(
+            col.python_expr(),
+            "bpy.data.collections.get(\"Environment\")"
+        );
+
+        let img = NodeSocket::<Image>::from("Noise.png");
+        assert_eq!(img.python_expr(), "bpy.data.images.get(\"Noise.png\")");
+    }
 }
