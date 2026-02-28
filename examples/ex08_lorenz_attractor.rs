@@ -42,6 +42,7 @@ const GEO_NAME: &str = "LorenzAttractorGeo";
 const MAT_NEON: &str = "NeonMat";
 const COMP_NAME: &str = "LorenzComp";
 
+//noinspection DuplicatedCode
 fn main() {
     BlenderProject::new()
         .add_shader_tree(MAT_NEON, || {
