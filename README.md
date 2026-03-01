@@ -40,8 +40,8 @@ Requires Blender 5.0+, Rust, and Python.
 2. Run the following commands in the project root:
 
 ```shell
-$ {Blender Executable} --background --factory-startup --python dump_nodes.py  # This generates `blender_nodes_dump.json`.
-$ cargo build  # This includes macro generation to handle Blender nodes.
+{Blender Executable} --background --factory-startup --python dump_nodes.py  # This generates `blender_nodes_dump.json`.
+cargo build  # This includes macro generation to handle Blender nodes.
 ```
 
 ### Edit Code and Generate Nodes
@@ -50,11 +50,11 @@ $ cargo build  # This includes macro generation to handle Blender nodes.
 
 1. Launch Blender along with the script-receiving server using the following command. The port is `8080`, which is hardcoded in `server.py` and `live_link.rs`.
 ```shell
-$ {Blender Executable} --python server.py
+{Blender Executable} --python server.py
 ```
 2. **With an active object selected**, run the sample code you want to execute as shown below. This will add a geometry nodes modifier to the target object, as well as create shader and compositor nodes.
 ```shell
-$ cargo run --example ex08_lorenz_attractor
+cargo run --example ex08_lorenz_attractor
 ```
 
 #### Once You Get Used to It
